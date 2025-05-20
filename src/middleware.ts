@@ -15,6 +15,17 @@ export async function middleware(req: NextRequest) {
   } = await supabase.auth.getSession()
   console.log('미들웨어 세션:', session)
 
+  // 루트 경로 처리
+  if (req.nextUrl.pathname === '/') {
+    if (session) {
+      console.log('루트 경로 접속, Admin 페이지로 리다이렉트')
+      return NextResponse.redirect(new URL('/admin', req.url))
+    } else {
+      console.log('루트 경로 접속, 로그인 페이지로 리다이렉트')
+      return NextResponse.redirect(new URL('/auth/login', req.url))
+    }
+  }
+
   if (req.nextUrl.pathname === '/auth/login') {
     if (session) {
       console.log('이미 로그인됨, Admin 페이지로 리다이렉트')
@@ -62,6 +73,7 @@ export async function middleware(req: NextRequest) {
 
 export const config = {
   matcher: [
+    '/',
     '/admin',
     '/admin/:path*',
     '/auth/login'
