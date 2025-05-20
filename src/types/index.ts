@@ -1,12 +1,9 @@
-import { createClient } from '@supabase/supabase-js'
-
-
 export type UserRole = 'ADMIN' | 'LANDLORD' | 'REALTOR' | 'USER';
 
 export interface User {
   id: string;
   email: string;
-  role: UserRole;
+  user_type: UserRole;
   created_at: string;
   documents?: {
     id: string;

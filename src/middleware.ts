@@ -33,7 +33,7 @@ export async function middleware(req: NextRequest) {
       console.log('Admin 권한 확인 시작')
       const { data: user, error } = await supabase
         .from('users')
-        .select('role')
+        .select('user_type')
         .eq('id', session.user.id)
         .single()
       if (error) {
@@ -41,11 +41,11 @@ export async function middleware(req: NextRequest) {
       }
       if (!user) {
         console.error('user 없음! (DB에 해당 id가 없음)')
-      } else if (user.role !== 'ADMIN') {
-        console.error('user.role이 ADMIN이 아님:', user.role)
+      } else if (user.user_type !== 'ADMIN') {
+        console.error('user.user_type이 ADMIN이 아님:', user.user_type)
       }
       console.log('사용자 데이터:', user)
-      if (error || !user || user.role !== 'ADMIN') {
+      if (error || !user || user.user_type !== 'ADMIN') {
         console.error('Admin 권한 확인 실패')
         return NextResponse.redirect(new URL('/', req.url))
       }

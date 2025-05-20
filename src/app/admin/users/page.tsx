@@ -86,7 +86,7 @@ export default function UsersPage() {
                     {user.email}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {user.role}
+                    {user.user_type}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {new Date(user.created_at).toLocaleDateString()}
@@ -123,7 +123,7 @@ export default function UsersPage() {
             isOpen={isRoleModalOpen}
             onClose={() => setIsRoleModalOpen(false)}
             userId={selectedUser.id}
-            currentRole={selectedUser.role}
+            currentRole={selectedUser.user_type}
             onRoleChange={loadUsers}
           />
           <DocumentReviewModal
