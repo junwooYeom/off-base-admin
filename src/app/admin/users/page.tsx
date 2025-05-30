@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { User } from '@/types'
 import RoleChangeModal from '@/components/RoleChangeModal'
 import DocumentReviewModal from '@/components/DocumentReviewModal'
+import { useRouter } from 'next/navigation'
 
 async function getUsers() {
   const { data, error } = await supabase
@@ -20,8 +21,9 @@ export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([])
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false)
   const [isDocModalOpen, setIsDocModalOpen] = useState(false)
-  const [selectedUser, setSelectedUser] = useState<User | null>(null)
+  const [selectedUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const router = useRouter()
 
   // 초기 데이터 로드
   useEffect(() => {
@@ -38,16 +40,6 @@ export default function UsersPage() {
     } finally {
       setIsLoading(false)
     }
-  }
-
-  const handleRoleChange = (user: User) => {
-    setSelectedUser(user)
-    setIsRoleModalOpen(true)
-  }
-
-  const handleDocReview = (user: User) => {
-    setSelectedUser(user)
-    setIsDocModalOpen(true)
   }
 
   if (isLoading) {
@@ -80,38 +72,24 @@ export default function UsersPage() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {users.map((user) => (
-                <tr key={user.id}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {user.email}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {user.user_type}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {new Date(user.created_at).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {user.documents?.some(doc => doc.status === 'PENDING') ? '검토 필요' : '완료'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    <button
-                      className="text-indigo-600 hover:text-indigo-900 mr-4"
-                      onClick={() => handleRoleChange(user)}
-                    >
-                      역할 변경
-                    </button>
-                    {user.documents && user.documents.length > 0 && (
+              {users
+                .filter(user => user.user_type === 'REALTOR' && user.waiting_status === 'PENDING')
+                .map((user) => (
+                  <tr key={user.id}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.email}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.user_type}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(user.created_at).toLocaleDateString()}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.waiting_status}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       <button
                         className="text-indigo-600 hover:text-indigo-900"
-                        onClick={() => handleDocReview(user)}
+                        onClick={() => router.push(`/admin/users/${user.id}`)}
                       >
-                        문서 검토
+                        상세보기
                       </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                  </tr>
+                ))}
             </tbody>
           </table>
         </div>
