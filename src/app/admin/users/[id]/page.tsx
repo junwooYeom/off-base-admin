@@ -27,7 +27,7 @@ export default function UserDetailPage() {
       setIsLoading(false)
     }
     fetchUser()
-  }, [])
+  })
 
   const handleStatusChange = async (newStatus: User['waiting_status']) => {
     const { error } = await supabase
