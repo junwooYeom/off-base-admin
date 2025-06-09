@@ -16,14 +16,15 @@ export default function AuthCallbackPage() {
         return
       }
 
-      // 모바일 앱(Android) 여부 판단 (User-Agent에 'offbaseandroid' 포함 시)
+      // 모바일 앱 여부 판단 (User-Agent에 'Humpreys/1.0.0' 포함 시)
       const ua = navigator.userAgent.toLowerCase()
-      const isAndroidApp = ua.includes('offbaseandroid')
+      const isHumpreysApp = ua.includes('humpreys/1.0.0')
       const params = new URLSearchParams(window.location.search)
       const code = params.get('code')
 
-      if (isAndroidApp && code) {
-        // Android 앱이면 딥링크로 리다이렉트
+      if (isHumpreysApp && code) {
+        // Humpreys 앱(Android/iOS)이면 딥링크로 리다이렉트
+        // 'offbase://auth'는 Android/iOS 앱 모두에서 등록된 딥링크 스킴이어야 합니다.
         window.location.href = `offbase://auth?code=${code}`
         return
       }

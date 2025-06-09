@@ -58,12 +58,12 @@ export async function middleware(req: NextRequest) {
       console.log('사용자 데이터:', user)
       if (error || !user || user.user_type !== 'ADMIN') {
         console.error('Admin 권한 확인 실패')
-        return NextResponse.redirect(new URL('/', req.url))
+          return NextResponse.redirect(new URL('/auth/login', req.url))
       }
       console.log('Admin 권한 확인 성공')
     } catch (error) {
       console.error('Admin 권한 확인 중 예외 발생:', error)
-      return NextResponse.redirect(new URL('/', req.url))
+        return NextResponse.redirect(new URL('/auth/login', req.url))
     }
   }
 
@@ -78,4 +78,4 @@ export const config = {
     '/admin/:path*',
     '/auth/login'
   ]
-} 
+}
