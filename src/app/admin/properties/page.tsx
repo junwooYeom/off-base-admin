@@ -1,13 +1,13 @@
 import { supabase } from '@/lib/supabase'
 import { Property } from '@/types'
-import PropertiesTable from './PropertiesTable.tsx'
+import PropertiesTable from './PropertiesTable'
 
 async function getProperties() {
   const { data, error } = await supabase
     .from('properties')
     .select('*')
     .order('created_at', { ascending: false })
-  
+
   if (error) throw error
   return data as Property[]
 }
