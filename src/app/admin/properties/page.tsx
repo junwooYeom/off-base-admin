@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { Property } from '@/types'
-import PropertiesTable from './PropertiesTable'
+import PropertiesTable from './PropertiesTable.tsx'
 
 async function getProperties() {
   const { data, error } = await supabase
