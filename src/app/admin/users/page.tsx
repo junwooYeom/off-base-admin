@@ -40,9 +40,18 @@ export default function UsersPage() {
   }
 
   const handleStatusUpdate = async (userId: string, status: 'APPROVED' | 'REJECTED') => {
+    if (!confirm(`상태를 ${status === 'APPROVED' ? '승인' : '거절'}로 변경하시겠습니까?`)) {
+      return
+    }
+    
     try {
       const { error } = await adminQueries.users.updateStatus(userId, status)
-      if (error) throw error
+      if (error) {
+        console.error('Status update error:', error)
+        alert(`상태 업데이트 실패: ${error.message}`)
+        throw error
+      }
+      alert('상태가 성공적으로 업데이트되었습니다.')
       await loadUsers()
     } catch (error) {
       console.error('Error updating status:', error)

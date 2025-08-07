@@ -5,6 +5,8 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { UserWithCompat, toUserWithCompat } from '@/types/compatibility'
 import Image from 'next/image'
+import Link from 'next/link'
+import { ArrowLeft, User, Mail, Calendar, Shield } from 'lucide-react'
 
 
 export default function UserDetailPage() {
@@ -27,68 +29,139 @@ export default function UserDetailPage() {
       setIsLoading(false)
     }
     fetchUser()
-  })
+  }, [userId]) // Add dependency array to prevent infinite loop
 
   const handleStatusChange = async (newStatus: 'PENDING' | 'APPROVED' | 'REJECTED') => {
+    if (!confirm(`상태를 ${newStatus === 'APPROVED' ? '승인' : newStatus === 'REJECTED' ? '거절' : '대기'}로 변경하시겠습니까?`)) {
+      return
+    }
+    
     const { error } = await supabase
       .from('users')
-      .update({ verification_status: newStatus })
+      .update({ 
+        verification_status: newStatus,
+        updated_at: new Date().toISOString()
+      })
       .eq('id', userId)
-    if (!error) router.push('/admin/users')
-    else alert('상태 변경 실패')
+    
+    if (!error) {
+      alert('상태가 성공적으로 변경되었습니다.')
+      router.push('/admin/users')
+    } else {
+      alert(`상태 변경 실패: ${error.message}`)
+    }
   }
 
-  if (isLoading) return <div>로딩 중...</div>
-  if (!user) return <div>유저 정보를 불러올 수 없습니다.</div>
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    )
+  }
+  
+  if (!user) {
+    return (
+      <div className="bg-white shadow rounded-lg p-6">
+        <p className="text-red-600">사용자를 찾을 수 없습니다.</p>
+        <Link href="/admin/users" className="text-blue-600 hover:underline mt-4 inline-block">
+          ← 사용자 목록으로 돌아가기
+        </Link>
+      </div>
+    )
+  }
 
   return (
-    <div className="p-6">
-      <h2 className="text-lg font-bold mb-4">유저 상세 정보</h2>
-      <div className="mb-4">
-        <div>이메일: {user.email}</div>
-        <div>유형: {user.user_type}</div>
-        <div>가입일: {new Date(user.created_at).toLocaleDateString()}</div>
-        <div>상태: {user.verification_status}</div>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="bg-white shadow rounded-lg px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <Link href="/admin/users" className="text-gray-600 hover:text-gray-900">
+              <ArrowLeft className="h-5 w-5" />
+            </Link>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">사용자 상세 정보</h1>
+              <p className="text-gray-600 mt-1">{user.full_name || user.email}</p>
+            </div>
+          </div>
+          <Link 
+            href={`/admin/users/${userId}/edit`}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            편집
+          </Link>
+        </div>
       </div>
-      <h3 className="font-semibold mb-2">제출 파일</h3>
-      <ul className="mb-4">
-        {false ? (
-          []
-            .filter(doc => doc.type === 'JPG' || doc.url.endsWith('.jpg') || doc.url.endsWith('.jpeg'))
-            .map(doc => (
-              <li key={doc.id} className="mb-2">
-                <a
-                  href={doc.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 underline"
-                  download
-                >
-                  {doc.type || 'JPG 파일'} 다운로드
-                </a>
-                {/* 미리보기 */}
-                <div className="mt-2">
-                  <Image src={doc.url} alt="제출 파일 미리보기" width={320} height={240} className="max-w-xs border" />
-                </div>
-              </li>
-            ))
-        ) : (
-          <li>제출된 JPG 파일이 없습니다.</li>
-        )}
-      </ul>
-      <div className="flex gap-4">
-        <button
-          className="bg-green-600 text-white px-4 py-2 rounded"
-          onClick={() => handleStatusChange('ALLOWED')}
-        >
-          승인
-        </button>
-        <button
-          className="bg-red-600 text-white px-4 py-2 rounded"
-          onClick={() => handleStatusChange('REJECTED')}
-        >
-          거절
-        </button>
+
+      {/* User Info */}
+      <div className="bg-white shadow rounded-lg p-6">
+        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+          <User className="h-5 w-5" />
+          기본 정보
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="flex items-center gap-2">
+            <Mail className="h-4 w-4 text-gray-500" />
+            <span className="text-gray-600">이메일:</span>
+            <span className="font-medium">{user.email}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Shield className="h-4 w-4 text-gray-500" />
+            <span className="text-gray-600">사용자 유형:</span>
+            <span className="font-medium">
+              {user.user_type === 'ADMIN' ? '관리자' :
+               user.user_type === 'REALTOR' ? '공인중개사' :
+               user.user_type === 'LANDLORD' ? '임대인' : '세입자'}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Calendar className="h-4 w-4 text-gray-500" />
+            <span className="text-gray-600">가입일:</span>
+            <span className="font-medium">{new Date(user.created_at).toLocaleDateString('ko-KR')}</span>
+          </div>
+          <div>
+            <span className="text-gray-600">인증 상태:</span>
+            <span className={`ml-2 px-2 py-1 text-xs font-semibold rounded-full ${
+              user.verification_status === 'APPROVED' ? 'bg-green-100 text-green-800' :
+              user.verification_status === 'REJECTED' ? 'bg-red-100 text-red-800' :
+              'bg-yellow-100 text-yellow-800'
+            }`}>
+              {user.verification_status === 'APPROVED' ? '승인됨' :
+               user.verification_status === 'REJECTED' ? '거절됨' : '대기중'}
+            </span>
+          </div>
+        </div>
+      </div>
+      {/* Status Actions */}
+      <div className="bg-white shadow rounded-lg p-6">
+        <h2 className="text-lg font-semibold mb-4">상태 관리</h2>
+        <div className="flex gap-4">
+          {user.verification_status !== 'APPROVED' && (
+            <button
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              onClick={() => handleStatusChange('APPROVED')}
+            >
+              승인
+            </button>
+          )}
+          {user.verification_status !== 'REJECTED' && (
+            <button
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              onClick={() => handleStatusChange('REJECTED')}
+            >
+              거절
+            </button>
+          )}
+          {user.verification_status !== 'PENDING' && (
+            <button
+              className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors"
+              onClick={() => handleStatusChange('PENDING')}
+            >
+              대기로 변경
+            </button>
+          )}
+        </div>
       </div>
     </div>
   )

@@ -72,11 +72,18 @@ export default function CompanyVerificationPage() {
         .update({
           verification_status: 'APPROVED',
           verified_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
+          is_verified: true // Also update the legacy is_verified field
         })
         .eq('id', companyId)
 
-      if (error) throw error
+      if (error) {
+        console.error('Approval error details:', error)
+        alert(`승인 실패: ${error.message}`)
+        throw error
+      }
+      
+      alert('회사가 성공적으로 승인되었습니다.')
       await loadCompanies()
     } catch (error) {
       console.error('Error approving company:', error)
@@ -92,12 +99,18 @@ export default function CompanyVerificationPage() {
         .update({
           verification_status: 'REJECTED',
           rejection_reason: rejectionReason,
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
+          is_verified: false // Also update the legacy is_verified field
         })
         .eq('id', actionCompanyId)
 
-      if (error) throw error
+      if (error) {
+        console.error('Rejection error details:', error)
+        alert(`거절 실패: ${error.message}`)
+        throw error
+      }
       
+      alert('회사가 거절되었습니다.')
       setShowReasonModal(false)
       setRejectionReason('')
       setActionCompanyId(null)
