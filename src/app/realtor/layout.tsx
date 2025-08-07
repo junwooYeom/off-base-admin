@@ -1,70 +1,56 @@
 import Link from 'next/link'
 import { ReactNode } from 'react'
-import AdminHeader from '@/components/AdminHeader'
 
-export default function AdminLayout({
+export default function RealtorLayout({
   children,
 }: {
   children: ReactNode
 }) {
   return (
     <div className="min-h-screen bg-gray-100">
-      <AdminHeader />
       <nav className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex">
               <div className="flex-shrink-0 flex items-center">
-                <h1 className="text-xl font-bold">Admin Dashboard</h1>
+                <h1 className="text-xl font-bold">Realtor Dashboard</h1>
               </div>
               <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
                 <Link
-                  href="/admin"
+                  href="/realtor/leads"
                   className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
                 >
-                  대시보드
+                  리드 관리
                 </Link>
                 <Link
-                  href="/admin/users"
+                  href="/realtor/analytics"
                   className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
                 >
-                  사용자 관리
+                  매물 성과 분석
                 </Link>
                 <Link
-                  href="/admin/admins"
+                  href="/realtor/bulk-upload"
                   className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
                 >
-                  🔐 관리자 계정
+                  매물 대량 등록
                 </Link>
                 <Link
-                  href="/admin/properties"
+                  href="/realtor/open-house"
                   className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
                 >
-                  매물 관리
+                  오픈하우스 관리
                 </Link>
                 <Link
-                  href="/admin/verification/realtors"
+                  href="/realtor/clients"
                   className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
                 >
-                  👤 중개사 인증
+                  고객 관계 추적
                 </Link>
                 <Link
-                  href="/admin/verification/companies"
+                  href="/realtor/commission"
                   className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
                 >
-                  🏢 회사 인증
-                </Link>
-                <Link
-                  href="/admin/verification/properties"
-                  className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
-                >
-                  🏠 매물 인증
-                </Link>
-                <Link
-                  href="/admin/reports"
-                  className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
-                >
-                  🚨 신고 관리
+                  수수료 계산기
                 </Link>
               </div>
             </div>
@@ -76,4 +62,4 @@ export default function AdminLayout({
       </main>
     </div>
   )
-} 
+}

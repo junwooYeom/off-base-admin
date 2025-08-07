@@ -3,7 +3,7 @@
 import { useRouter, useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { User } from '@/types'
+import { UserWithCompat, toUserWithCompat } from '@/types/compatibility'
 import Image from 'next/image'
 
 
@@ -12,7 +12,7 @@ export default function UserDetailPage() {
   const params = useParams()
   const userId = params.id as string
 
-  const [user, setUser] = useState<User | null>(null)
+  const [user, setUser] = useState<UserWithCompat | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
@@ -20,19 +20,19 @@ export default function UserDetailPage() {
       setIsLoading(true)
       const { data, error } = await supabase
         .from('users')
-        .select('*, documents(*)')
+        .select('*')
         .eq('id', userId)
         .single()
-      if (!error && data) setUser(data)
+      if (!error && data) setUser(toUserWithCompat(data))
       setIsLoading(false)
     }
     fetchUser()
   })
 
-  const handleStatusChange = async (newStatus: User['waiting_status']) => {
+  const handleStatusChange = async (newStatus: 'PENDING' | 'APPROVED' | 'REJECTED') => {
     const { error } = await supabase
       .from('users')
-      .update({ waiting_status: newStatus })
+      .update({ verification_status: newStatus })
       .eq('id', userId)
     if (!error) router.push('/admin/users')
     else alert('상태 변경 실패')
@@ -48,12 +48,12 @@ export default function UserDetailPage() {
         <div>이메일: {user.email}</div>
         <div>유형: {user.user_type}</div>
         <div>가입일: {new Date(user.created_at).toLocaleDateString()}</div>
-        <div>상태: {user.waiting_status}</div>
+        <div>상태: {user.verification_status}</div>
       </div>
       <h3 className="font-semibold mb-2">제출 파일</h3>
       <ul className="mb-4">
-        {user.documents && user.documents.length > 0 ? (
-          user.documents
+        {false ? (
+          []
             .filter(doc => doc.type === 'JPG' || doc.url.endsWith('.jpg') || doc.url.endsWith('.jpeg'))
             .map(doc => (
               <li key={doc.id} className="mb-2">

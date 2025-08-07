@@ -1,29 +1,6 @@
-export type UserRole = 'ADMIN' | 'LANDLORD' | 'REALTOR' | 'USER';
+// Re-export all types from supabase.ts
+export * from './supabase'
 
-export type WaitingStatus = 'PENDING' | 'REJECTED' | 'ALLOWED';
-
-export interface User {
-  id: string;
-  email: string;
-  user_type: UserRole;
-  created_at: string;
-  waiting_status: WaitingStatus;
-  documents?: {
-    id: string;
-    type: string;
-    url: string;
-    status: 'PENDING' | 'APPROVED' | 'REJECTED';
-  }[];
-}
-
-export interface Property {
-  id: string;
-  title: string;
-  description: string;
-  price: number;
-  location: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED';
-  created_at: string;
-  user_id: string;
-  images: string[];
-} 
+// Legacy type aliases for backward compatibility
+export type UserRole = 'ADMIN' | 'LANDLORD' | 'REALTOR' | 'TENANT'
+export type WaitingStatus = 'PENDING' | 'REJECTED' | 'APPROVED'
