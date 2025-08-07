@@ -8,12 +8,12 @@ export async function POST(request: NextRequest) {
 
     if (!email || !password) {
       return NextResponse.json(
-        { error: '이메일과 비밀번호를 입력해주세요.' },
+        { error: '필수 정보가 누락되었습니다.' },
         { status: 400 }
       )
     }
 
-    // Check if email already exists
+    // Check if admin with this email already exists
     const { data: existingAdmin } = await supabaseAdmin
       .from('admins')
       .select('id')
@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     // Hash password
     const passwordHash = await bcrypt.hash(password, 10)
 
-    // Create admin with PENDING status
+    // Create admin record with PENDING status (no auth_uid needed)
     const { data: newAdmin, error } = await supabaseAdmin
       .from('admins')
       .insert({
@@ -51,10 +51,11 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ 
       success: true,
-      message: '관리자 가입 요청이 접수되었습니다. 승인 대기 중입니다.'
+      message: '관리자 가입 요청이 접수되었습니다. 승인 대기 중입니다.',
+      admin: { id: newAdmin.id, email: newAdmin.email }
     })
   } catch (error) {
-    console.error('Signup error:', error)
+    console.error('Register error:', error)
     return NextResponse.json(
       { error: '서버 오류가 발생했습니다.' },
       { status: 500 }

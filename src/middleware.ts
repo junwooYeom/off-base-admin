@@ -14,12 +14,14 @@ export async function middleware(req: NextRequest) {
     if (adminSession) {
       return NextResponse.redirect(new URL('/admin', req.url))
     } else {
-      return NextResponse.redirect(new URL('/admin/login', req.url))
+      return NextResponse.redirect(new URL('/admin/auth/login', req.url))
     }
   }
 
-  // Admin login page - allow access if not already logged in
-  if (req.nextUrl.pathname === '/admin/login') {
+  // Admin auth pages - allow access if not already logged in
+  if (req.nextUrl.pathname === '/admin/login' || 
+      req.nextUrl.pathname === '/admin/auth/login' ||
+      req.nextUrl.pathname === '/admin/auth/signup') {
     if (adminSession) {
       return NextResponse.redirect(new URL('/admin', req.url))
     }
@@ -28,15 +30,17 @@ export async function middleware(req: NextRequest) {
 
   // Admin routes - require authentication
   if (req.nextUrl.pathname.startsWith('/admin')) {
-    // Skip auth check for login, signup pages and API routes
-    if (req.nextUrl.pathname === '/admin/login' || 
+    // Skip auth check for auth pages and API routes
+    if (req.nextUrl.pathname.startsWith('/admin/auth/') || 
+        req.nextUrl.pathname === '/admin/login' || 
         req.nextUrl.pathname === '/admin/signup' ||
         req.nextUrl.pathname.startsWith('/api/admin/')) {
       return res
     }
     
+    // Check if user has valid admin session
     if (!adminSession) {
-      return NextResponse.redirect(new URL('/admin/login', req.url))
+      return NextResponse.redirect(new URL('/admin/auth/login', req.url))
     }
   }
 

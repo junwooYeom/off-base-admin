@@ -7,12 +7,13 @@ export default function AdminHeader() {
   const router = useRouter()
 
   const handleLogout = async () => {
+    // Clear admin session cookie
     const response = await fetch('/api/admin/logout', {
       method: 'POST',
     })
     
     if (response.ok) {
-      router.push('/admin/login')
+      router.push('/admin/auth/login')
       router.refresh()
     }
   }
