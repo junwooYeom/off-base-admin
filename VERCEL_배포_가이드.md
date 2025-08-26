@@ -74,8 +74,11 @@ main 브랜치에 코드를 푸시할 때 Vercel이 자동으로 프로덕션 �
 1. `Settings` → `General` 메뉴로 이동
 2. `Build & Development Settings` 섹션 확인:
    - **Framework Preset**: `Next.js` (자동 감지됨)
-   - **Build Command**: `npm run build:production` (vercel.json에서 자동 설정됨)
+   - **Build Command**: `next build` (vercel.json에서 자동 설정됨)
    - **Install Command**: `npm install`
+
+⚠️ **중요**: Vercel은 환경 변수를 자동으로 읽기 때문에 `.env.production` 파일을 복사할 필요가 없습니다. 
+위에서 설정한 환경 변수들이 자동으로 적용됩니다.
 
 ## 🚀 배포 방법
 
@@ -94,8 +97,9 @@ git push origin main
 ### Vercel이 자동으로 수행하는 작업:
 1. main 브랜치 변경 감지
 2. `npm install` 실행 (패키지 설치)
-3. `npm run build:production` 실행 (프로덕션 빌드)
-4. 프로덕션 모드로 배포
+3. `next build` 실행 (프로덕션 빌드)
+4. 환경 변수 자동 적용
+5. 프로덕션 모드로 배포
 
 ## ✅ 프로덕션 모드 확인 방법
 
