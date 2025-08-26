@@ -3,7 +3,10 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Shield, Mail, Calendar, CheckCircle, XCircle, Clock, User } from 'lucide-react'
+import { Shield, Mail, Calendar, CheckCircle, XCircle, Clock, User, Crown, UserCog } from 'lucide-react'
+import Pagination from '@/components/Pagination'
+
+const ITEMS_PER_PAGE = 10
 
 interface Admin {
   id: string
@@ -12,36 +15,46 @@ interface Admin {
   created_at: string
   approved_at?: string
   approved_by?: string
+  is_super_admin?: boolean
 }
 
 export default function AdminManagementPage() {
   const [admins, setAdmins] = useState<Admin[]>([])
   const [loading, setLoading] = useState(true)
   const [currentAdminId, setCurrentAdminId] = useState<string | null>(null)
+  const [currentAdmin, setCurrentAdmin] = useState<Admin | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
 
   useEffect(() => {
     fetchAdmins()
     getCurrentAdmin()
-  }, [])
+  }, [currentPage])
 
   const getCurrentAdmin = async () => {
-    // Get current admin ID from session
+    // Get current admin from session
     const response = await fetch('/api/admin/current')
     if (response.ok) {
       const data = await response.json()
       setCurrentAdminId(data.id)
+      setCurrentAdmin(data)
     }
   }
 
   const fetchAdmins = async () => {
     try {
-      const { data, error } = await supabase
+      const from = (currentPage - 1) * ITEMS_PER_PAGE
+      const to = from + ITEMS_PER_PAGE - 1
+      
+      const { data, error, count } = await supabase
         .from('admins')
-        .select('*')
+        .select('*', { count: 'exact' })
         .order('created_at', { ascending: false })
+        .range(from, to)
 
       if (error) throw error
       setAdmins(data || [])
+      setTotalCount(count || 0)
     } catch (error) {
       console.error('Error fetching admins:', error)
     } finally {
@@ -50,6 +63,11 @@ export default function AdminManagementPage() {
   }
 
   const handleStatusUpdate = async (adminId: string, newStatus: 'APPROVED' | 'REJECTED') => {
+    if (!currentAdmin?.is_super_admin && currentAdmin?.id !== adminId) {
+      alert('슈퍼 관리자만 다른 관리자의 상태를 변경할 수 있습니다.')
+      return
+    }
+    
     try {
       const updateData: any = {
         status: newStatus
@@ -74,6 +92,28 @@ export default function AdminManagementPage() {
     } catch (error) {
       console.error('Error updating admin status:', error)
       alert('상태 업데이트 중 오류가 발생했습니다.')
+    }
+  }
+
+  const toggleSuperAdmin = async (adminId: string, isSuperAdmin: boolean) => {
+    if (!currentAdmin?.is_super_admin) {
+      alert('슈퍼 관리자만 권한을 변경할 수 있습니다.')
+      return
+    }
+
+    try {
+      const { error } = await supabase
+        .from('admins')
+        .update({ is_super_admin: isSuperAdmin })
+        .eq('id', adminId)
+
+      if (error) throw error
+
+      fetchAdmins()
+      alert(isSuperAdmin ? '슈퍼 관리자 권한이 부여되었습니다.' : '슈퍼 관리자 권한이 제거되었습니다.')
+    } catch (error) {
+      console.error('Error toggling super admin:', error)
+      alert('권한 변경 중 오류가 발생했습니다.')
     }
   }
 
@@ -170,6 +210,7 @@ export default function AdminManagementPage() {
                       </div>
                     </div>
                   </div>
+                  {currentAdmin?.is_super_admin && (
                   <div className="flex gap-2">
                     <button
                       onClick={() => handleStatusUpdate(admin.id, 'APPROVED')}
@@ -184,6 +225,7 @@ export default function AdminManagementPage() {
                       거절
                     </button>
                   </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -200,12 +242,20 @@ export default function AdminManagementPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
+          {approvedAdmins.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-gray-600">활성 관리자가 없습니다</p>
+            </div>
+          ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead>
                 <tr>
                   <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     이메일
+                  </th>
+                  <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    권한
                   </th>
                   <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     상태
@@ -216,18 +266,40 @@ export default function AdminManagementPage() {
                   <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     승인일
                   </th>
+                  {currentAdmin?.is_super_admin && (
+                    <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      작업
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {approvedAdmins.map((admin) => (
-                  <tr key={admin.id}>
+                  <tr key={admin.id} className={admin.is_super_admin ? 'bg-purple-50' : ''}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
-                        <div className="p-2 bg-green-100 rounded-full mr-3">
-                          <User className="h-4 w-4 text-green-600" />
+                        <div className={`p-2 rounded-full mr-3 ${admin.is_super_admin ? 'bg-purple-100' : 'bg-green-100'}`}>
+                          {admin.is_super_admin ? (
+                            <Crown className="h-4 w-4 text-purple-600" />
+                          ) : (
+                            <User className="h-4 w-4 text-green-600" />
+                          )}
                         </div>
                         <span className="text-sm font-medium text-gray-900">{admin.email}</span>
                       </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {admin.is_super_admin ? (
+                        <span className="flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">
+                          <Crown className="h-3 w-3" />
+                          슈퍼 관리자
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                          <UserCog className="h-3 w-3" />
+                          일반 관리자
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {getStatusBadge(admin.status)}
@@ -238,11 +310,28 @@ export default function AdminManagementPage() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {admin.approved_at ? new Date(admin.approved_at).toLocaleDateString('ko-KR') : '-'}
                     </td>
+                    {currentAdmin?.is_super_admin && (
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {admin.id !== currentAdminId && (
+                          <button
+                            onClick={() => toggleSuperAdmin(admin.id, !admin.is_super_admin)}
+                            className={`px-3 py-1 text-xs rounded-full ${
+                              admin.is_super_admin
+                                ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                : 'bg-purple-600 text-white hover:bg-purple-700'
+                            }`}
+                          >
+                            {admin.is_super_admin ? '권한 제거' : '슈퍼 관리자 지정'}
+                          </button>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+          )}
         </CardContent>
       </Card>
 
@@ -275,6 +364,13 @@ export default function AdminManagementPage() {
           </CardContent>
         </Card>
       )}
+      
+      <Pagination
+        currentPage={currentPage}
+        totalCount={totalCount}
+        itemsPerPage={ITEMS_PER_PAGE}
+        onPageChange={setCurrentPage}
+      />
     </div>
   )
 }

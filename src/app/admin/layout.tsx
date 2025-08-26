@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { ReactNode } from 'react'
 import AdminHeader from '@/components/AdminHeader'
+import EnvironmentBadge from '@/components/EnvironmentBadge'
 
 export default function AdminLayout({
   children,
@@ -10,6 +11,7 @@ export default function AdminLayout({
   return (
     <div className="min-h-screen bg-gray-100">
       <AdminHeader />
+      <EnvironmentBadge />
       <nav className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
@@ -41,6 +43,18 @@ export default function AdminLayout({
                   className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
                 >
                   매물 관리
+                </Link>
+                <Link
+                  href="/admin/property-requests"
+                  className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+                >
+                  📋 매물 요청
+                </Link>
+                <Link
+                  href="/admin/role-requests"
+                  className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+                >
+                  🔄 역할 변경 요청
                 </Link>
                 <Link
                   href="/admin/verification/realtors"

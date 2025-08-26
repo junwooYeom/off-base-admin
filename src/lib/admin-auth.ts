@@ -12,14 +12,15 @@ export interface AdminSession {
   id: string
   email: string
   loggedInAt: number
+  is_super_admin?: boolean
 }
 
-export async function verifyAdminCredentials(email: string, password: string): Promise<{ id: string, email: string } | null> {
+export async function verifyAdminCredentials(email: string, password: string): Promise<{ id: string, email: string, is_super_admin?: boolean } | null> {
   try {
     // Get admin from database
     const { data: admin, error } = await supabaseAdmin
       .from('admins')
-      .select('id, email, password_hash, status')
+      .select('id, email, password_hash, status, is_super_admin')
       .eq('email', email)
       .single()
     
@@ -39,17 +40,18 @@ export async function verifyAdminCredentials(email: string, password: string): P
       return null
     }
     
-    return { id: admin.id, email: admin.email }
+    return { id: admin.id, email: admin.email, is_super_admin: admin.is_super_admin }
   } catch (error) {
     console.error('Error verifying admin credentials:', error)
     return null
   }
 }
 
-export async function createAdminSession(admin: { id: string, email: string }): Promise<string> {
+export async function createAdminSession(admin: { id: string, email: string, is_super_admin?: boolean }): Promise<string> {
   const token = await new SignJWT({ 
     id: admin.id,
-    email: admin.email, 
+    email: admin.email,
+    is_super_admin: admin.is_super_admin || false,
     loggedInAt: Date.now() 
   })
     .setProtectedHeader({ alg: 'HS256' })

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Building2, Calendar, CheckCircle, XCircle, FileText, User } from 'lucide-react'
+import Pagination from '@/components/Pagination'
 
 interface RealtorCompany {
   id: string
@@ -20,6 +21,8 @@ interface RealtorCompany {
   realtor_count?: number
 }
 
+const ITEMS_PER_PAGE = 10
+
 export default function CompanyVerificationPage() {
   const [companies, setCompanies] = useState<RealtorCompany[]>([])
   const [loading, setLoading] = useState(true)
@@ -27,28 +30,40 @@ export default function CompanyVerificationPage() {
   const [rejectionReason, setRejectionReason] = useState('')
   const [showReasonModal, setShowReasonModal] = useState(false)
   const [actionCompanyId, setActionCompanyId] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
 
   useEffect(() => {
+    setCurrentPage(1)
     loadCompanies()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter])
 
+  useEffect(() => {
+    loadCompanies()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage])
+
   const loadCompanies = async () => {
     try {
       setLoading(true)
+      const from = (currentPage - 1) * ITEMS_PER_PAGE
+      const to = from + ITEMS_PER_PAGE - 1
+      
       let query = supabase
         .from('realtor_companies')
         .select(`
           *,
           users:users(count)
-        `)
+        `, { count: 'exact' })
         .order('created_at', { ascending: false })
+        .range(from, to)
 
       if (filter !== 'ALL') {
         query = query.eq('verification_status', filter)
       }
 
-      const { data, error } = await query
+      const { data, error, count } = await query
 
       if (error) throw error
 
@@ -58,6 +73,7 @@ export default function CompanyVerificationPage() {
       }))
 
       setCompanies(companiesWithCount)
+      setTotalCount(count || 0)
     } catch (error) {
       console.error('Error loading companies:', error)
     } finally {
@@ -157,7 +173,7 @@ export default function CompanyVerificationPage() {
              status === 'PENDING' ? '대기중' :
              status === 'APPROVED' ? '승인됨' : '거절됨'}
             <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-600">
-              {companies.filter(c => status === 'ALL' || c.verification_status === status).length}
+              {filter === status ? totalCount : companies.filter(c => status === 'ALL' || c.verification_status === status).length}
             </span>
           </button>
         ))}
@@ -286,6 +302,14 @@ export default function CompanyVerificationPage() {
           </p>
         </div>
       )}
+
+      {/* Pagination */}
+      <Pagination
+        currentPage={currentPage}
+        totalCount={totalCount}
+        itemsPerPage={ITEMS_PER_PAGE}
+        onPageChange={setCurrentPage}
+      />
 
       {/* Rejection Reason Modal */}
       {showReasonModal && (

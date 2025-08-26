@@ -6,6 +6,7 @@ import { Property, PropertyDocument, PropertyMedia } from '@/types/supabase'
 import { CheckCircle, XCircle, FileText, Home, Clock, AlertCircle, Image as ImageIcon, MapPin } from 'lucide-react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
+import Pagination from '@/components/Pagination'
 
 interface PropertyWithDetails extends Property {
   property_documents: PropertyDocument[]
@@ -18,6 +19,8 @@ interface PropertyWithDetails extends Property {
   }
 }
 
+const ITEMS_PER_PAGE = 10
+
 export default function PropertyVerificationPage() {
   const [properties, setProperties] = useState<PropertyWithDetails[]>([])
   const [loading, setLoading] = useState(true)
@@ -25,32 +28,44 @@ export default function PropertyVerificationPage() {
   const [processing, setProcessing] = useState<string | null>(null)
   const [rejectionReasons, setRejectionReasons] = useState<{ [key: string]: string }>({})
   const [showReasonInput, setShowReasonInput] = useState<{ [key: string]: boolean }>({})
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
   
   const supabase = createClientComponentClient()
   const router = useRouter()
 
   useEffect(() => {
+    setCurrentPage(1)
     loadProperties()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter])
 
+  useEffect(() => {
+    loadProperties()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage])
+
   const loadProperties = async () => {
     setLoading(true)
     try {
+      const from = (currentPage - 1) * ITEMS_PER_PAGE
+      const to = from + ITEMS_PER_PAGE - 1
+
       let query = supabase
         .from('properties')
         .select(`
           *,
           property_documents (*),
           property_media (*),
-          owner:users!properties_owner_id_fkey (
+          owner:owner_id (
             id,
             full_name,
             email,
             user_type
           )
-        `)
+        `, { count: 'exact' })
         .order('created_at', { ascending: false })
+        .range(from, to)
 
       if (filter === 'PENDING') {
         query = query.eq('is_active', false)
@@ -60,10 +75,11 @@ export default function PropertyVerificationPage() {
         query = query.eq('is_active', false)
       }
 
-      const { data, error } = await query
+      const { data, error, count } = await query
 
       if (error) throw error
       setProperties(data || [])
+      setTotalCount(count || 0)
     } catch (error) {
       console.error('Error loading properties:', error)
     } finally {
@@ -500,6 +516,14 @@ export default function PropertyVerificationPage() {
           ))}
         </div>
       )}
+
+      {/* Pagination */}
+      <Pagination
+        currentPage={currentPage}
+        totalCount={totalCount}
+        itemsPerPage={ITEMS_PER_PAGE}
+        onPageChange={setCurrentPage}
+      />
     </div>
   )
 }

@@ -4,9 +4,17 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
+    "dev:development": "cp .env.development .env.local && next dev --turbopack",
+    "dev:production": "cp .env.production .env.local && next dev --turbopack",
     "build": "next build",
+    "build:development": "cp .env.development .env.local && next build",
+    "build:production": "cp .env.production .env.local && next build",
     "start": "next start",
-    "lint": "next lint"
+    "start:development": "cp .env.development .env.local && next start",
+    "start:production": "cp .env.production .env.local && next start",
+    "lint": "next lint",
+    "flavor:dev": "cp .env.development .env.local && echo '✅ Switched to DEVELOPMENT flavor (master branch)'",
+    "flavor:release": "cp .env.production .env.local && echo '✅ Switched to PRODUCTION/RELEASE flavor (main branch)'"
   },
   "dependencies": {
     "@supabase/auth-helpers-nextjs": "^0.10.0",
@@ -14,6 +22,7 @@
     "@supabase/supabase-js": "^2.49.4",
     "@types/bcryptjs": "^2.4.6",
     "bcryptjs": "^3.0.2",
+    "dotenv": "^17.2.1",
     "jose": "^6.0.12",
     "lucide-react": "^0.536.0",
     "next": "^15.3.2",
