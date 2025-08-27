@@ -4,50 +4,111 @@ import {Property} from '@/types'
 import {toPropertyWithCompat} from '@/types/compatibility'
 import {supabase} from '@/lib/supabase'
 import {useRouter} from 'next/navigation'
+import {useState} from 'react'
 
 interface PropertiesTableProps {
     properties: Property[]
+    onUpdate?: () => Promise<void>
 }
 
-export default function PropertiesTable({properties}: PropertiesTableProps) {
+export default function PropertiesTable({properties, onUpdate}: PropertiesTableProps) {
     const router = useRouter()
+    const [processingId, setProcessingId] = useState<string | null>(null)
     
     // Convert properties to compatible format
     const compatProperties = properties.map(toPropertyWithCompat)
 
     const handleApprove = async (propertyId: string) => {
-        const {error} = await supabase
-            .from('properties')
-            .update({
-                status: 'APPROVED',
-                is_active: true,
-                approval_date: new Date().toISOString()
-            })
-            .eq('id', propertyId)
-
-        if (error) {
-            alert('승인 실패')
+        console.log('승인 버튼 클릭됨 - propertyId:', propertyId)
+        
+        if (!confirm('이 매물을 승인하시겠습니까?')) {
             return
         }
 
-        router.refresh()
+        setProcessingId(propertyId)
+        
+        try {
+            console.log('Supabase 업데이트 시작...')
+            const {data, error} = await supabase
+                .from('properties')
+                .update({
+                    status: 'APPROVED',
+                    is_active: true,
+                    approval_date: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', propertyId)
+                .select()
+
+            console.log('Supabase 응답:', { data, error })
+
+            if (error) {
+                console.error('승인 오류:', error)
+                alert(`승인 실패: ${error.message}`)
+                setProcessingId(null)
+                return
+            }
+
+            alert('매물이 승인되었습니다.')
+            
+            // onUpdate 콜백이 있으면 호출, 없으면 페이지 새로고침
+            if (onUpdate) {
+                await onUpdate()
+            } else {
+                window.location.reload()
+            }
+        } catch (err) {
+            console.error('승인 중 오류:', err)
+            alert('승인 중 오류가 발생했습니다.')
+        } finally {
+            setProcessingId(null)
+        }
     }
 
     const handleReject = async (propertyId: string) => {
-        const {error} = await supabase
-            .from('properties')
-            .update({
-                status: 'REJECTED',
-                is_active: false
-            })
-            .eq('id', propertyId)
-
-        if (error) {
-            alert('거절 실패')
+        console.log('거절 버튼 클릭됨 - propertyId:', propertyId)
+        
+        if (!confirm('이 매물을 거절하시겠습니까?')) {
             return
         }
 
-        router.refresh()
+        setProcessingId(propertyId)
+        
+        try {
+            console.log('Supabase 업데이트 시작...')
+            const {data, error} = await supabase
+                .from('properties')
+                .update({
+                    status: 'REJECTED',
+                    is_active: false,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', propertyId)
+                .select()
+
+            console.log('Supabase 응답:', { data, error })
+
+            if (error) {
+                console.error('거절 오류:', error)
+                alert(`거절 실패: ${error.message}`)
+                setProcessingId(null)
+                return
+            }
+
+            alert('매물이 거절되었습니다.')
+            
+            // onUpdate 콜백이 있으면 호출, 없으면 페이지 새로고침
+            if (onUpdate) {
+                await onUpdate()
+            } else {
+                window.location.reload()
+            }
+        } catch (err) {
+            console.error('거절 중 오류:', err)
+            alert('거절 중 오류가 발생했습니다.')
+        } finally {
+            setProcessingId(null)
+        }
     }
 
     const handleViewDetail = (propertyId: string) => {
@@ -138,37 +199,47 @@ export default function PropertiesTable({properties}: PropertiesTableProps) {
                         >
                             문서
                         </button>
-                        {property.status === 'PENDING' && (
+                        {processingId === property.id ? (
+                            <span className="text-gray-400">처리 중...</span>
+                        ) : (
                             <>
-                                <button
-                                    className="text-green-600 hover:text-green-900 mr-4"
-                                    onClick={() => handleApprove(property.id)}
-                                >
-                                    승인
-                                </button>
-                                <button
-                                    className="text-red-600 hover:text-red-900"
-                                    onClick={() => handleReject(property.id)}
-                                >
-                                    거절
-                                </button>
+                                {property.status === 'PENDING' && (
+                                    <>
+                                        <button
+                                            className="text-green-600 hover:text-green-900 mr-4 disabled:opacity-50"
+                                            onClick={() => handleApprove(property.id)}
+                                            disabled={processingId !== null}
+                                        >
+                                            승인
+                                        </button>
+                                        <button
+                                            className="text-red-600 hover:text-red-900 disabled:opacity-50"
+                                            onClick={() => handleReject(property.id)}
+                                            disabled={processingId !== null}
+                                        >
+                                            거절
+                                        </button>
+                                    </>
+                                )}
+                                {property.status === 'APPROVED' && (
+                                    <button
+                                        className="text-red-600 hover:text-red-900 disabled:opacity-50"
+                                        onClick={() => handleReject(property.id)}
+                                        disabled={processingId !== null}
+                                    >
+                                        승인 취소
+                                    </button>
+                                )}
+                                {property.status === 'REJECTED' && (
+                                    <button
+                                        className="text-green-600 hover:text-green-900 disabled:opacity-50"
+                                        onClick={() => handleApprove(property.id)}
+                                        disabled={processingId !== null}
+                                    >
+                                        재승인
+                                    </button>
+                                )}
                             </>
-                        )}
-                        {property.status === 'APPROVED' && (
-                            <button
-                                className="text-red-600 hover:text-red-900"
-                                onClick={() => handleReject(property.id)}
-                            >
-                                승인 취소
-                            </button>
-                        )}
-                        {property.status === 'REJECTED' && (
-                            <button
-                                className="text-green-600 hover:text-green-900"
-                                onClick={() => handleApprove(property.id)}
-                            >
-                                재승인
-                            </button>
                         )}
                     </td>
                 </tr>

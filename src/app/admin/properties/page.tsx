@@ -71,7 +71,7 @@ export default function PropertiesPage() {
           </div>
         ) : (
         <div className="mt-4">
-          <PropertiesTable properties={properties}/>
+          <PropertiesTable properties={properties} onUpdate={loadProperties}/>
         </div>
         )}
         
