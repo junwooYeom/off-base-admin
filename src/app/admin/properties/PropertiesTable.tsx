@@ -28,28 +28,27 @@ export default function PropertiesTable({properties, onUpdate}: PropertiesTableP
         setProcessingId(propertyId)
         
         try {
-            console.log('Supabase 업데이트 시작...')
-            const {data, error} = await supabase
-                .from('properties')
-                .update({
-                    status: 'APPROVED',
-                    is_active: true,
-                    approval_date: new Date().toISOString(),
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', propertyId)
-                .select()
+            console.log('API 호출 시작...')
+            
+            // API를 통해 승인 처리
+            const response = await fetch(`/api/admin/properties/${propertyId}/approve`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
 
-            console.log('Supabase 응답:', { data, error })
+            const result = await response.json()
+            console.log('API 응답:', result)
 
-            if (error) {
-                console.error('승인 오류:', error)
-                alert(`승인 실패: ${error.message}`)
+            if (!response.ok) {
+                console.error('승인 오류:', result.error)
+                alert(`승인 실패: ${result.error || '알 수 없는 오류'}`)
                 setProcessingId(null)
                 return
             }
 
-            alert('매물이 승인되었습니다.')
+            alert(result.message || '매물이 승인되었습니다.')
             
             // onUpdate 콜백이 있으면 호출, 없으면 페이지 새로고침
             if (onUpdate) {
@@ -75,27 +74,27 @@ export default function PropertiesTable({properties, onUpdate}: PropertiesTableP
         setProcessingId(propertyId)
         
         try {
-            console.log('Supabase 업데이트 시작...')
-            const {data, error} = await supabase
-                .from('properties')
-                .update({
-                    status: 'REJECTED',
-                    is_active: false,
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', propertyId)
-                .select()
+            console.log('API 호출 시작...')
+            
+            // API를 통해 거절 처리
+            const response = await fetch(`/api/admin/properties/${propertyId}/approve`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
 
-            console.log('Supabase 응답:', { data, error })
+            const result = await response.json()
+            console.log('API 응답:', result)
 
-            if (error) {
-                console.error('거절 오류:', error)
-                alert(`거절 실패: ${error.message}`)
+            if (!response.ok) {
+                console.error('거절 오류:', result.error)
+                alert(`거절 실패: ${result.error || '알 수 없는 오류'}`)
                 setProcessingId(null)
                 return
             }
 
-            alert('매물이 거절되었습니다.')
+            alert(result.message || '매물이 거절되었습니다.')
             
             // onUpdate 콜백이 있으면 호출, 없으면 페이지 새로고침
             if (onUpdate) {
