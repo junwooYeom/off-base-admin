@@ -8,12 +8,17 @@ import Pagination from '@/components/Pagination'
 
 interface RealtorCompany {
   id: string
-  name: string
-  registration_number: string
-  representative_name: string
-  phone: string
+  name?: string
+  company_name?: string
+  registration_number?: string
+  business_registration_number?: string
+  representative_name?: string
+  ceo_name?: string
+  phone?: string
+  phone_number?: string
   address: string
   business_license_url?: string
+  business_license?: string
   verification_status: 'PENDING' | 'APPROVED' | 'REJECTED'
   verified_at?: string
   created_at: string
@@ -187,11 +192,11 @@ export default function CompanyVerificationPage() {
                 <div>
                   <CardTitle className="flex items-center gap-2">
                     <Building2 className="h-5 w-5" />
-                    {company.name}
+                    {company.company_name || company.name || '회사명 없음'}
                   </CardTitle>
                   <div className="mt-2 flex items-center gap-4 text-sm text-gray-500">
-                    <span>사업자등록번호: {company.registration_number}</span>
-                    <span>대표자: {company.representative_name}</span>
+                    <span>사업자등록번호: {company.business_registration_number || company.registration_number || '정보 없음'}</span>
+                    <span>대표자: {company.ceo_name || company.representative_name || '정보 없음'}</span>
                   </div>
                 </div>
                 <span className={`px-3 py-1 text-xs font-semibold rounded-full ${
@@ -211,7 +216,7 @@ export default function CompanyVerificationPage() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 <div>
                   <p className="text-sm text-gray-500">연락처</p>
-                  <p className="font-medium">{company.phone}</p>
+                  <p className="font-medium">{company.phone_number || company.phone || '정보 없음'}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">주소</p>
@@ -233,11 +238,11 @@ export default function CompanyVerificationPage() {
                 </div>
               </div>
 
-              {company.business_license_url && (
+              {(company.business_license_url || company.business_license) && (
                 <div className="mb-4">
                   <p className="text-sm text-gray-500 mb-2">사업자등록증</p>
                   <a
-                    href={company.business_license_url}
+                    href={company.business_license_url || company.business_license}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-md text-sm font-medium text-gray-700 transition-colors"
