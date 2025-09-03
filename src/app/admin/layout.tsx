@@ -54,13 +54,7 @@ export default function AdminLayout({
                   href="/admin/role-requests"
                   className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
                 >
-                  🔄 역할 변경 요청
-                </Link>
-                <Link
-                  href="/admin/verification/realtors"
-                  className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
-                >
-                  👤 중개사 인증
+                  🔄 역할 승인 (통합)
                 </Link>
                 <Link
                   href="/admin/verification/companies"

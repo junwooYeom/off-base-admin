@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Building2, Calendar, CheckCircle, XCircle, FileText, User } from 'lucide-react'
+import { Building2, Calendar, CheckCircle, XCircle, FileText, User, UserPlus, AlertCircle } from 'lucide-react'
 import Pagination from '@/components/Pagination'
 
 interface RealtorCompany {
@@ -24,6 +24,10 @@ interface RealtorCompany {
   created_at: string
   updated_at: string
   realtor_count?: number
+  from_role_request?: boolean // Flag to identify if this is from role_upgrade_requests
+  role_request_id?: string // Associated role upgrade request ID
+  user_name?: string // User requesting the upgrade
+  user_email?: string
 }
 
 const ITEMS_PER_PAGE = 10
@@ -55,6 +59,7 @@ export default function CompanyVerificationPage() {
       const from = (currentPage - 1) * ITEMS_PER_PAGE
       const to = from + ITEMS_PER_PAGE - 1
       
+      // Load existing companies from realtor_companies table
       let query = supabase
         .from('realtor_companies')
         .select(`
@@ -68,17 +73,85 @@ export default function CompanyVerificationPage() {
         query = query.eq('verification_status', filter)
       }
 
-      const { data, error, count } = await query
+      const { data: existingCompanies, error: companiesError } = await query
 
-      if (error) throw error
+      if (companiesError) {
+        console.warn('Error loading companies:', companiesError)
+      }
 
-      const companiesWithCount = (data || []).map(company => ({
-        ...company,
-        realtor_count: company.users?.length || 0
-      }))
+      // Load companies from role_upgrade_requests
+      let roleRequestsQuery = supabase
+        .from('role_upgrade_requests')
+        .select(`
+          *,
+          user:users!role_upgrade_requests_user_id_fkey(
+            id,
+            full_name,
+            email
+          )
+        `)
+        .not('company_registration_number', 'is', null)
+        .eq('status', 'pending')
 
-      setCompanies(companiesWithCount)
-      setTotalCount(count || 0)
+      const { data: roleRequests, error: roleRequestsError } = await roleRequestsQuery
+
+      if (roleRequestsError) {
+        console.warn('Error loading role requests:', roleRequestsError)
+      }
+
+      // Combine and format the data
+      const allCompanies: RealtorCompany[] = []
+
+      // Add existing companies
+      if (existingCompanies) {
+        existingCompanies.forEach(company => {
+          allCompanies.push({
+            ...company,
+            realtor_count: company.users?.length || 0,
+            from_role_request: false
+          })
+        })
+      }
+
+      // Add companies from role upgrade requests (only if not already in realtor_companies)
+      if (roleRequests && filter === 'PENDING') {
+        roleRequests.forEach(request => {
+          // Check if this company already exists in realtor_companies
+          const existingCompany = existingCompanies?.find(
+            c => c.business_registration_number === request.company_registration_number
+          )
+          
+          if (!existingCompany && request.company_name && request.company_registration_number) {
+            allCompanies.push({
+              id: `role_request_${request.id}`,
+              company_name: request.company_name,
+              business_registration_number: request.company_registration_number,
+              phone_number: request.company_phone || '',
+              address: request.company_address || '',
+              business_license_url: request.business_license_url,
+              verification_status: 'PENDING',
+              created_at: request.created_at,
+              updated_at: request.updated_at,
+              from_role_request: true,
+              role_request_id: request.id,
+              user_name: request.user?.full_name || request.user?.email?.split('@')[0] || '이름 없음',
+              user_email: request.user?.email,
+              realtor_count: 0
+            })
+          }
+        })
+      }
+
+      // Sort by created_at
+      allCompanies.sort((a, b) => 
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      )
+
+      // Apply pagination
+      const paginatedCompanies = allCompanies.slice(from, to + 1)
+
+      setCompanies(paginatedCompanies)
+      setTotalCount(allCompanies.length)
     } catch (error) {
       console.error('Error loading companies:', error)
     } finally {
@@ -88,23 +161,96 @@ export default function CompanyVerificationPage() {
 
   const handleApprove = async (companyId: string) => {
     try {
-      const { error } = await supabase
-        .from('realtor_companies')
-        .update({
-          verification_status: 'APPROVED',
-          verified_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          is_verified: true // Also update the legacy is_verified field
-        })
-        .eq('id', companyId)
+      // Check if this is from a role upgrade request
+      if (companyId.startsWith('role_request_')) {
+        const roleRequestId = companyId.replace('role_request_', '')
+        const company = companies.find(c => c.id === companyId)
+        
+        if (!company) {
+          alert('회사 정보를 찾을 수 없습니다.')
+          return
+        }
 
-      if (error) {
-        console.error('Approval error details:', error)
-        alert(`승인 실패: ${error.message}`)
-        throw error
+        // First, create the company in realtor_companies table
+        const { data: newCompany, error: createError } = await supabase
+          .from('realtor_companies')
+          .insert({
+            company_name: company.company_name,
+            business_registration_number: company.business_registration_number,
+            phone_number: company.phone_number,
+            address: company.address,
+            business_license: company.business_registration_number,
+            business_license_url: company.business_license_url,
+            verification_status: 'APPROVED',
+            verified_at: new Date().toISOString(),
+            is_verified: true
+          })
+          .select()
+          .single()
+
+        if (createError) {
+          console.error('Company creation error:', createError)
+          alert(`회사 생성 실패: ${createError.message}`)
+          return
+        }
+
+        // Update the role upgrade request to link to the new company
+        const { error: updateError } = await supabase
+          .from('role_upgrade_requests')
+          .update({
+            status: 'approved',
+            approved_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', roleRequestId)
+
+        if (updateError) {
+          console.error('Role request update error:', updateError)
+        }
+
+        // Update the user to REALTOR and link to the company
+        const { data: roleRequestData } = await supabase
+          .from('role_upgrade_requests')
+          .select('user_id, realtor_registration_number, realtor_license_url')
+          .eq('id', roleRequestId)
+          .single()
+
+        if (roleRequestData) {
+          await supabase
+            .from('users')
+            .update({
+              user_type: 'REALTOR',
+              verification_status: 'APPROVED',
+              realtor_company_id: newCompany.id,
+              realtor_registration_number: roleRequestData.realtor_registration_number,
+              realtor_license_url: roleRequestData.realtor_license_url,
+              verified_at: new Date().toISOString()
+            })
+            .eq('id', roleRequestData.user_id)
+        }
+
+        alert('회사와 역할 변경이 성공적으로 승인되었습니다.')
+      } else {
+        // Handle existing company approval
+        const { error } = await supabase
+          .from('realtor_companies')
+          .update({
+            verification_status: 'APPROVED',
+            verified_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            is_verified: true
+          })
+          .eq('id', companyId)
+
+        if (error) {
+          console.error('Approval error details:', error)
+          alert(`승인 실패: ${error.message}`)
+          throw error
+        }
+        
+        alert('회사가 성공적으로 승인되었습니다.')
       }
       
-      alert('회사가 성공적으로 승인되었습니다.')
       await loadCompanies()
     } catch (error) {
       console.error('Error approving company:', error)
@@ -115,23 +261,48 @@ export default function CompanyVerificationPage() {
     if (!actionCompanyId || !rejectionReason) return
 
     try {
-      const { error } = await supabase
-        .from('realtor_companies')
-        .update({
-          verification_status: 'REJECTED',
-          rejection_reason: rejectionReason,
-          updated_at: new Date().toISOString(),
-          is_verified: false // Also update the legacy is_verified field
-        })
-        .eq('id', actionCompanyId)
+      // Check if this is from a role upgrade request
+      if (actionCompanyId.startsWith('role_request_')) {
+        const roleRequestId = actionCompanyId.replace('role_request_', '')
+        
+        // Update the role upgrade request
+        const { error } = await supabase
+          .from('role_upgrade_requests')
+          .update({
+            status: 'rejected',
+            rejection_reason: rejectionReason,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', roleRequestId)
 
-      if (error) {
-        console.error('Rejection error details:', error)
-        alert(`거절 실패: ${error.message}`)
-        throw error
+        if (error) {
+          console.error('Role request rejection error:', error)
+          alert(`거절 실패: ${error.message}`)
+          throw error
+        }
+        
+        alert('역할 변경 요청이 거절되었습니다.')
+      } else {
+        // Handle existing company rejection
+        const { error } = await supabase
+          .from('realtor_companies')
+          .update({
+            verification_status: 'REJECTED',
+            rejection_reason: rejectionReason,
+            updated_at: new Date().toISOString(),
+            is_verified: false
+          })
+          .eq('id', actionCompanyId)
+
+        if (error) {
+          console.error('Rejection error details:', error)
+          alert(`거절 실패: ${error.message}`)
+          throw error
+        }
+        
+        alert('회사가 거절되었습니다.')
       }
       
-      alert('회사가 거절되었습니다.')
       setShowReasonModal(false)
       setRejectionReason('')
       setActionCompanyId(null)
@@ -148,173 +319,198 @@ export default function CompanyVerificationPage() {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+      <div className="flex items-center justify-center h-64">
+        <p>Loading...</p>
       </div>
     )
   }
 
+  const pendingCount = companies.filter(c => c.verification_status === 'PENDING').length
+
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">부동산 회사 검증</h1>
-          <p className="text-gray-600 mt-1">부동산 회사 정보를 검토하고 승인 상태를 관리합니다</p>
-        </div>
-      </div>
-
-      <div className="flex space-x-1 border-b border-gray-200">
-        {(['ALL', 'PENDING', 'APPROVED', 'REJECTED'] as const).map((status) => (
-          <button
-            key={status}
-            onClick={() => setFilter(status)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-              filter === status
-                ? 'border-indigo-500 text-indigo-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            {status === 'ALL' ? '전체' :
-             status === 'PENDING' ? '대기중' :
-             status === 'APPROVED' ? '승인됨' : '거절됨'}
-            <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-600">
-              {filter === status ? totalCount : companies.filter(c => status === 'ALL' || c.verification_status === status).length}
-            </span>
-          </button>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 gap-6">
-        {companies.map((company) => (
-          <Card key={company.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-            <CardHeader className="bg-gray-50">
-              <div className="flex justify-between items-start">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <Building2 className="h-5 w-5" />
-                    {company.company_name || company.name || '회사명 없음'}
-                  </CardTitle>
-                  <div className="mt-2 flex items-center gap-4 text-sm text-gray-500">
-                    <span>사업자등록번호: {company.business_registration_number || company.registration_number || '정보 없음'}</span>
-                    <span>대표자: {company.ceo_name || company.representative_name || '정보 없음'}</span>
-                  </div>
-                </div>
-                <span className={`px-3 py-1 text-xs font-semibold rounded-full ${
-                  company.verification_status === 'APPROVED' 
-                    ? 'bg-green-100 text-green-800'
-                    : company.verification_status === 'PENDING'
-                    ? 'bg-yellow-100 text-yellow-800'
-                    : 'bg-red-100 text-red-800'
-                }`}>
-                  {company.verification_status === 'APPROVED' ? '승인됨' :
-                   company.verification_status === 'PENDING' ? '검토 대기' : '거절됨'}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-2xl">회사 인증 관리</CardTitle>
+              <CardDescription className="mt-2">
+                중개 회사 정보를 검토하고 승인/거절합니다.
+                <br />
+                <span className="text-blue-600 font-medium">
+                  역할 변경 요청에서 제출된 회사 정보도 함께 표시됩니다.
+                </span>
+              </CardDescription>
+            </div>
+            {pendingCount > 0 && (
+              <div className="flex items-center space-x-2 bg-yellow-100 px-3 py-2 rounded-lg">
+                <AlertCircle className="h-5 w-5 text-yellow-600" />
+                <span className="text-sm font-medium text-yellow-800">
+                  {pendingCount}개 대기중
                 </span>
               </div>
-            </CardHeader>
-            
-            <CardContent className="pt-6">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                <div>
-                  <p className="text-sm text-gray-500">연락처</p>
-                  <p className="font-medium">{company.phone_number || company.phone || '정보 없음'}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">주소</p>
-                  <p className="font-medium">{company.address}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">소속 중개사</p>
-                  <p className="font-medium flex items-center gap-1">
-                    <User className="h-4 w-4" />
-                    {company.realtor_count}명
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">등록일</p>
-                  <p className="font-medium flex items-center gap-1">
-                    <Calendar className="h-4 w-4" />
-                    {new Date(company.created_at).toLocaleDateString()}
-                  </p>
-                </div>
-              </div>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="flex space-x-4 mb-6">
+            {(['PENDING', 'ALL', 'APPROVED', 'REJECTED'] as const).map((status) => (
+              <button
+                key={status}
+                onClick={() => setFilter(status)}
+                className={`px-4 py-2 rounded-md ${
+                  filter === status
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                {status === 'PENDING' ? '대기중' :
+                 status === 'ALL' ? '전체' :
+                 status === 'APPROVED' ? '승인됨' : '거절됨'}
+              </button>
+            ))}
+          </div>
 
-              {(company.business_license_url || company.business_license) && (
-                <div className="mb-4">
-                  <p className="text-sm text-gray-500 mb-2">사업자등록증</p>
-                  <a
-                    href={company.business_license_url || company.business_license}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-md text-sm font-medium text-gray-700 transition-colors"
-                  >
-                    <FileText className="h-4 w-4" />
-                    사업자등록증 보기
-                  </a>
-                </div>
-              )}
+          {companies.length === 0 ? (
+            <p className="text-gray-500 text-center py-8">검토할 회사가 없습니다.</p>
+          ) : (
+            <div className="space-y-4">
+              {companies.map((company) => (
+                <Card key={company.id} className={company.from_role_request ? 'border-blue-300 bg-blue-50/50' : ''}>
+                  <CardContent className="p-6">
+                    <div className="flex justify-between items-start">
+                      <div className="space-y-3 flex-1">
+                        <div className="flex items-center space-x-3">
+                          <Building2 className="h-5 w-5 text-gray-500" />
+                          <h3 className="font-semibold text-lg">
+                            {company.company_name || company.name || '회사명 미등록'}
+                          </h3>
+                          {company.from_role_request && (
+                            <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
+                              역할 변경 요청
+                            </span>
+                          )}
+                        </div>
 
-              <div className="flex gap-3 pt-4 border-t">
-                {company.verification_status === 'PENDING' && (
-                  <>
-                    <button
-                      onClick={() => handleApprove(company.id)}
-                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md font-medium transition-colors"
-                    >
-                      <CheckCircle className="h-4 w-4" />
-                      승인
-                    </button>
-                    <button
-                      onClick={() => openRejectModal(company.id)}
-                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md font-medium transition-colors"
-                    >
-                      <XCircle className="h-4 w-4" />
-                      거절
-                    </button>
-                  </>
-                )}
-                {company.verification_status === 'APPROVED' && (
-                  <button
-                    onClick={() => openRejectModal(company.id)}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md font-medium transition-colors"
-                  >
-                    <XCircle className="h-4 w-4" />
-                    승인 취소
-                  </button>
-                )}
-                {company.verification_status === 'REJECTED' && (
-                  <button
-                    onClick={() => handleApprove(company.id)}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md font-medium transition-colors"
-                  >
-                    <CheckCircle className="h-4 w-4" />
-                    재승인
-                  </button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+                        {company.from_role_request && company.user_name && (
+                          <div className="flex items-center space-x-2 text-sm text-blue-700 bg-blue-100 px-3 py-2 rounded">
+                            <UserPlus className="h-4 w-4" />
+                            <span>
+                              요청자: <strong>{company.user_name}</strong> ({company.user_email})
+                            </span>
+                          </div>
+                        )}
 
-      {companies.length === 0 && (
-        <div className="text-center py-12">
-          <Building2 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-500">
-            {filter === 'ALL' ? '등록된 회사가 없습니다' :
-             filter === 'PENDING' ? '검토 대기 중인 회사가 없습니다' :
-             filter === 'APPROVED' ? '승인된 회사가 없습니다' :
-             '거절된 회사가 없습니다'}
-          </p>
-        </div>
-      )}
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <span className="text-gray-500">사업자등록번호:</span>
+                            <p className="font-medium">
+                              {company.business_registration_number || company.registration_number || '-'}
+                            </p>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">대표자:</span>
+                            <p className="font-medium">
+                              {company.ceo_name || company.representative_name || '-'}
+                            </p>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">전화번호:</span>
+                            <p className="font-medium">
+                              {company.phone_number || company.phone || '-'}
+                            </p>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">주소:</span>
+                            <p className="font-medium">{company.address || '-'}</p>
+                          </div>
+                          {!company.from_role_request && (
+                            <div>
+                              <span className="text-gray-500">소속 중개사:</span>
+                              <p className="font-medium">
+                                <User className="inline h-4 w-4 mr-1" />
+                                {company.realtor_count || 0}명
+                              </p>
+                            </div>
+                          )}
+                          <div>
+                            <span className="text-gray-500">등록일:</span>
+                            <p className="font-medium">
+                              <Calendar className="inline h-4 w-4 mr-1" />
+                              {new Date(company.created_at).toLocaleDateString('ko-KR')}
+                            </p>
+                          </div>
+                        </div>
 
-      {/* Pagination */}
-      <Pagination
-        currentPage={currentPage}
-        totalCount={totalCount}
-        itemsPerPage={ITEMS_PER_PAGE}
-        onPageChange={setCurrentPage}
-      />
+                        {company.business_license_url && (
+                          <div className="pt-2">
+                            <a
+                              href={company.business_license_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center space-x-1 text-blue-600 hover:text-blue-800"
+                            >
+                              <FileText className="h-4 w-4" />
+                              <span>사업자등록증 보기</span>
+                            </a>
+                          </div>
+                        )}
+
+                        <div className="flex items-center space-x-2 pt-2">
+                          {company.verification_status === 'APPROVED' ? (
+                            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                              <CheckCircle className="h-4 w-4 mr-1" />
+                              승인됨
+                            </span>
+                          ) : company.verification_status === 'REJECTED' ? (
+                            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
+                              <XCircle className="h-4 w-4 mr-1" />
+                              거절됨
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
+                              대기중
+                            </span>
+                          )}
+                          {company.verified_at && (
+                            <span className="text-sm text-gray-500">
+                              {new Date(company.verified_at).toLocaleDateString('ko-KR')} 처리
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {company.verification_status === 'PENDING' && (
+                        <div className="flex space-x-2 ml-4">
+                          <button
+                            onClick={() => handleApprove(company.id)}
+                            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                          >
+                            승인
+                          </button>
+                          <button
+                            onClick={() => openRejectModal(company.id)}
+                            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+                          >
+                            거절
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+
+          <Pagination
+            currentPage={currentPage}
+            totalCount={totalCount}
+            itemsPerPage={ITEMS_PER_PAGE}
+            onPageChange={setCurrentPage}
+          />
+        </CardContent>
+      </Card>
 
       {/* Rejection Reason Modal */}
       {showReasonModal && (
@@ -324,24 +520,25 @@ export default function CompanyVerificationPage() {
             <textarea
               value={rejectionReason}
               onChange={(e) => setRejectionReason(e.target.value)}
-              placeholder="거절 사유를 입력해주세요..."
-              className="w-full h-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full p-2 border rounded-md"
+              rows={4}
+              placeholder="거절 사유를 입력하세요..."
             />
-            <div className="flex gap-3 mt-4">
+            <div className="flex justify-end space-x-2 mt-4">
               <button
                 onClick={() => {
                   setShowReasonModal(false)
                   setRejectionReason('')
                   setActionCompanyId(null)
                 }}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+                className="px-4 py-2 text-gray-600 hover:text-gray-800"
               >
                 취소
               </button>
               <button
                 onClick={handleReject}
+                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
                 disabled={!rejectionReason}
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 거절
               </button>

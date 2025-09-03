@@ -47,21 +47,36 @@ export default function PropertyRequestsPage() {
       const { data, error, count } = await query.range(from, to)
 
       if (error) {
-        console.error('Error fetching property requests:', error)
+        // Use console.warn instead of console.error to avoid Next.js error interception
+        console.warn('Error fetching property requests:', error.message)
+        // Only show alert for non-network errors
+        if (error.code !== 'PGRST301' && error.code !== '42P01') {
+          alert(`매물 요청을 불러오는 중 오류가 발생했습니다: ${error.message}`)
+        }
+        setPropertyRequests([])
+        setTotalCount(0)
         return
       }
 
+      // Only log in development
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Property requests fetched:', { data, count })
+      }
+      
       setPropertyRequests(data || [])
       setTotalCount(count || 0)
     } catch (error) {
-      console.error('Error:', error)
+      // Use console.warn instead of console.error
+      console.warn('Unexpected error in fetchPropertyRequests:', error)
+      setPropertyRequests([])
+      setTotalCount(0)
     } finally {
       setLoading(false)
     }
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this property request?')) {
+    if (!confirm('이 매물 요청을 삭제하시겠습니까?')) {
       return
     }
 
@@ -72,15 +87,16 @@ export default function PropertyRequestsPage() {
         .eq('id', id)
 
       if (error) {
-        console.error('Error deleting property request:', error)
-        alert('Failed to delete property request')
+        console.warn('Error deleting property request:', error.message)
+        alert('매물 요청 삭제에 실패했습니다')
         return
       }
 
-      fetchPropertyRequests()
+      // Refresh the list after successful deletion
+      await fetchPropertyRequests()
     } catch (error) {
-      console.error('Error:', error)
-      alert('An error occurred while deleting the property request')
+      console.warn('Unexpected error in handleDelete:', error)
+      alert('매물 요청 삭제 중 오류가 발생했습니다')
     }
   }
 
@@ -101,13 +117,13 @@ export default function PropertyRequestsPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">Property Requests</h1>
+      <h1 className="text-3xl font-bold mb-8">매물 요청 관리</h1>
 
       <form onSubmit={handleSearch} className="mb-6">
         <div className="flex gap-2">
           <input
             type="text"
-            placeholder="Search by address or contact..."
+            placeholder="주소 또는 연락처로 검색..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -116,7 +132,7 @@ export default function PropertyRequestsPage() {
             type="submit"
             className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
-            Search
+            검색
           </button>
           {searchQuery && (
             <button
@@ -127,7 +143,7 @@ export default function PropertyRequestsPage() {
               }}
               className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
             >
-              Clear
+              초기화
             </button>
           )}
         </div>
@@ -135,11 +151,11 @@ export default function PropertyRequestsPage() {
 
       {loading ? (
         <div className="flex justify-center items-center h-64">
-          <div className="text-xl">Loading...</div>
+          <div className="text-xl">로딩 중...</div>
         </div>
       ) : propertyRequests.length === 0 ? (
         <div className="text-center py-16">
-          <p className="text-gray-600">No property requests found</p>
+          <p className="text-gray-600">매물 요청이 없습니다</p>
         </div>
       ) : (
         <>
@@ -149,19 +165,19 @@ export default function PropertyRequestsPage() {
                 <thead className="bg-gray-50 border-b">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Address
+                      주소
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Address Detail
+                      상세 주소
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Contact
+                      연락처
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Requested At
+                      요청일시
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
+                      작업
                     </th>
                   </tr>
                 </thead>
@@ -190,7 +206,7 @@ export default function PropertyRequestsPage() {
                           onClick={() => handleDelete(request.id)}
                           className="text-red-600 hover:text-red-900"
                         >
-                          Delete
+                          삭제
                         </button>
                       </td>
                     </tr>
@@ -202,7 +218,7 @@ export default function PropertyRequestsPage() {
 
           <Pagination
             currentPage={currentPage}
-            totalItems={totalCount}
+            totalCount={totalCount}
             itemsPerPage={itemsPerPage}
             onPageChange={setCurrentPage}
           />
