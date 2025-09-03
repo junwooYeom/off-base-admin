@@ -59,7 +59,16 @@ export default function CompanyVerificationPage() {
       const from = (currentPage - 1) * ITEMS_PER_PAGE
       const to = from + ITEMS_PER_PAGE - 1
       
-      // Load existing companies from realtor_companies table
+      // First, get ALL companies to check for duplicates (not paginated)
+      const { data: allExistingCompanies } = await supabase
+        .from('realtor_companies')
+        .select('business_registration_number')
+      
+      const existingRegistrationNumbers = new Set(
+        allExistingCompanies?.map(c => c.business_registration_number) || []
+      )
+      
+      // Load existing companies from realtor_companies table (paginated)
       let query = supabase
         .from('realtor_companies')
         .select(`
@@ -114,14 +123,12 @@ export default function CompanyVerificationPage() {
       }
 
       // Add companies from role upgrade requests (only if not already in realtor_companies)
-      if (roleRequests && filter === 'PENDING') {
+      if (roleRequests && (filter === 'PENDING' || filter === 'ALL')) {
         roleRequests.forEach(request => {
           // Check if this company already exists in realtor_companies
-          const existingCompany = existingCompanies?.find(
-            c => c.business_registration_number === request.company_registration_number
-          )
+          const companyAlreadyExists = existingRegistrationNumbers.has(request.company_registration_number)
           
-          if (!existingCompany && request.company_name && request.company_registration_number) {
+          if (!companyAlreadyExists && request.company_name && request.company_registration_number) {
             allCompanies.push({
               id: `role_request_${request.id}`,
               company_name: request.company_name,
@@ -171,27 +178,65 @@ export default function CompanyVerificationPage() {
           return
         }
 
-        // First, create the company in realtor_companies table
-        const { data: newCompany, error: createError } = await supabase
+        // First, check if company already exists
+        const { data: existingCompany } = await supabase
           .from('realtor_companies')
-          .insert({
-            company_name: company.company_name,
-            business_registration_number: company.business_registration_number,
-            phone_number: company.phone_number,
-            address: company.address,
-            business_license: company.business_registration_number,
-            business_license_url: company.business_license_url,
-            verification_status: 'APPROVED',
-            verified_at: new Date().toISOString(),
-            is_verified: true
-          })
-          .select()
+          .select('id')
+          .eq('business_registration_number', company.business_registration_number)
           .single()
 
-        if (createError) {
-          console.error('Company creation error:', createError)
-          alert(`회사 생성 실패: ${createError.message}`)
-          return
+        let newCompany
+        
+        if (existingCompany) {
+          // Update existing company to APPROVED
+          const { data: updatedCompany, error: updateError } = await supabase
+            .from('realtor_companies')
+            .update({
+              company_name: company.company_name,
+              phone_number: company.phone_number,
+              address: company.address,
+              business_license_url: company.business_license_url,
+              verification_status: 'APPROVED',
+              verified_at: new Date().toISOString(),
+              is_verified: true,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', existingCompany.id)
+            .select()
+            .single()
+
+          if (updateError) {
+            console.error('Company update error:', updateError)
+            alert(`회사 업데이트 실패: ${updateError.message}`)
+            return
+          }
+          
+          newCompany = updatedCompany
+        } else {
+          // Create new company
+          const { data: createdCompany, error: createError } = await supabase
+            .from('realtor_companies')
+            .insert({
+              company_name: company.company_name,
+              business_registration_number: company.business_registration_number,
+              phone_number: company.phone_number,
+              address: company.address,
+              business_license: company.business_registration_number,
+              business_license_url: company.business_license_url,
+              verification_status: 'APPROVED',
+              verified_at: new Date().toISOString(),
+              is_verified: true
+            })
+            .select()
+            .single()
+
+          if (createError) {
+            console.error('Company creation error:', createError)
+            alert(`회사 생성 실패: ${createError.message}`)
+            return
+          }
+          
+          newCompany = createdCompany
         }
 
         // Update the role upgrade request to link to the new company
@@ -228,6 +273,12 @@ export default function CompanyVerificationPage() {
             })
             .eq('id', roleRequestData.user_id)
         }
+
+        // Delete the role upgrade request after successful approval
+        await supabase
+          .from('role_upgrade_requests')
+          .delete()
+          .eq('id', roleRequestId)
 
         alert('회사와 역할 변경이 성공적으로 승인되었습니다.')
       } else {
@@ -280,6 +331,12 @@ export default function CompanyVerificationPage() {
           alert(`거절 실패: ${error.message}`)
           throw error
         }
+        
+        // Delete the role upgrade request after rejection
+        await supabase
+          .from('role_upgrade_requests')
+          .delete()
+          .eq('id', roleRequestId)
         
         alert('역할 변경 요청이 거절되었습니다.')
       } else {

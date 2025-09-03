@@ -138,7 +138,10 @@ export default function RoleRequestsPage() {
         .update(userUpdateData)
         .eq('id', request.user_id)
 
-      if (userError) throw userError
+      if (userError) {
+        console.warn('User update error details:', userError)
+        throw new Error(`사용자 정보 업데이트 실패: ${userError.message}`)
+      }
 
       // 3. Approve all pending documents
       const { error: docsError } = await supabase
@@ -206,11 +209,22 @@ export default function RoleRequestsPage() {
           .eq('id', request.user_id)
       }
 
+      // Delete the role upgrade request after successful approval
+      const { error: deleteError } = await supabase
+        .from('role_upgrade_requests')
+        .delete()
+        .eq('id', request.id)
+      
+      if (deleteError) {
+        console.warn('Failed to delete role upgrade request:', deleteError)
+      }
+
       await loadRequests()
       alert('✅ 역할 변경 요청이 승인되었습니다. 사용자는 이제 공인중개사로 활동할 수 있습니다.')
-    } catch (error) {
-      console.error('Approval error:', error)
-      alert('승인 처리 중 오류가 발생했습니다')
+    } catch (error: any) {
+      console.warn('Approval error:', error)
+      const errorMessage = error?.message || '승인 처리 중 오류가 발생했습니다'
+      alert(`오류: ${errorMessage}`)
     } finally {
       setProcessing(null)
     }
@@ -237,6 +251,16 @@ export default function RoleRequestsPage() {
         .eq('id', requestId)
 
       if (requestError) throw requestError
+
+      // Delete the role upgrade request after rejection
+      const { error: deleteError } = await supabase
+        .from('role_upgrade_requests')
+        .delete()
+        .eq('id', requestId)
+      
+      if (deleteError) {
+        console.warn('Failed to delete role upgrade request:', deleteError)
+      }
 
       setRejectionReasons(prev => ({ ...prev, [requestId]: '' }))
       setShowReasonInput(prev => ({ ...prev, [requestId]: false }))
