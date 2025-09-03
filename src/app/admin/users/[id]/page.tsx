@@ -31,26 +31,6 @@ export default function UserDetailPage() {
     fetchUser()
   }, [userId]) // Add dependency array to prevent infinite loop
 
-  const handleStatusChange = async (newStatus: 'PENDING' | 'APPROVED' | 'REJECTED') => {
-    if (!confirm(`상태를 ${newStatus === 'APPROVED' ? '승인' : newStatus === 'REJECTED' ? '거절' : '대기'}로 변경하시겠습니까?`)) {
-      return
-    }
-    
-    const { error } = await supabase
-      .from('users')
-      .update({ 
-        verification_status: newStatus,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', userId)
-    
-    if (!error) {
-      alert('상태가 성공적으로 변경되었습니다.')
-      router.push('/admin/users')
-    } else {
-      alert(`상태 변경 실패: ${error.message}`)
-    }
-  }
 
   if (isLoading) {
     return (
@@ -120,47 +100,6 @@ export default function UserDetailPage() {
             <span className="text-gray-600">가입일:</span>
             <span className="font-medium">{new Date(user.created_at).toLocaleDateString('ko-KR')}</span>
           </div>
-          <div>
-            <span className="text-gray-600">인증 상태:</span>
-            <span className={`ml-2 px-2 py-1 text-xs font-semibold rounded-full ${
-              user.verification_status === 'APPROVED' ? 'bg-green-100 text-green-800' :
-              user.verification_status === 'REJECTED' ? 'bg-red-100 text-red-800' :
-              'bg-yellow-100 text-yellow-800'
-            }`}>
-              {user.verification_status === 'APPROVED' ? '승인됨' :
-               user.verification_status === 'REJECTED' ? '거절됨' : '대기중'}
-            </span>
-          </div>
-        </div>
-      </div>
-      {/* Status Actions */}
-      <div className="bg-white shadow rounded-lg p-6">
-        <h2 className="text-lg font-semibold mb-4">상태 관리</h2>
-        <div className="flex gap-4">
-          {user.verification_status !== 'APPROVED' && (
-            <button
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-              onClick={() => handleStatusChange('APPROVED')}
-            >
-              승인
-            </button>
-          )}
-          {user.verification_status !== 'REJECTED' && (
-            <button
-              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-              onClick={() => handleStatusChange('REJECTED')}
-            >
-              거절
-            </button>
-          )}
-          {user.verification_status !== 'PENDING' && (
-            <button
-              className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors"
-              onClick={() => handleStatusChange('PENDING')}
-            >
-              대기로 변경
-            </button>
-          )}
         </div>
       </div>
     </div>

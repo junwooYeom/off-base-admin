@@ -256,22 +256,32 @@ export default function CompanyVerificationPage() {
         // Update the user to REALTOR and link to the company
         const { data: roleRequestData } = await supabase
           .from('role_upgrade_requests')
-          .select('user_id, realtor_registration_number, realtor_license_url')
+          .select('user_id, realtor_registration_number, realtor_license_url, documents')
           .eq('id', roleRequestId)
           .single()
 
         if (roleRequestData) {
+          // Update user role and link to company
           await supabase
             .from('users')
             .update({
               user_type: 'REALTOR',
-              verification_status: 'APPROVED',
               realtor_company_id: newCompany.id,
               realtor_registration_number: roleRequestData.realtor_registration_number,
               realtor_license_url: roleRequestData.realtor_license_url,
               verified_at: new Date().toISOString()
             })
             .eq('id', roleRequestData.user_id)
+          
+          // Approve all pending user verification documents
+          await supabase
+            .from('user_verification_documents')
+            .update({
+              verification_status: 'APPROVED',
+              verified_at: new Date().toISOString()
+            })
+            .eq('user_id', roleRequestData.user_id)
+            .eq('verification_status', 'PENDING')
         }
 
         // Delete the role upgrade request after successful approval

@@ -120,7 +120,6 @@ export default function RoleRequestsPage() {
       // 2. Update user role to REALTOR and add realtor information
       const userUpdateData: any = {
         user_type: 'REALTOR',
-        verification_status: 'APPROVED',
         verified_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       }
@@ -143,17 +142,25 @@ export default function RoleRequestsPage() {
         throw new Error(`사용자 정보 업데이트 실패: ${userError.message}`)
       }
 
-      // 3. Approve all pending documents
-      const { error: docsError } = await supabase
+      // 3. Approve all pending documents and migrate them to proper buckets
+      const { data: userDocs } = await supabase
         .from('user_verification_documents')
-        .update({
-          verification_status: 'APPROVED',
-          verified_at: new Date().toISOString()
-        })
+        .select('*')
         .eq('user_id', request.user_id)
         .eq('verification_status', 'PENDING')
 
-      if (docsError) console.warn('Documents update warning:', docsError)
+      if (userDocs && userDocs.length > 0) {
+        for (const doc of userDocs) {
+          // Update document status to APPROVED
+          await supabase
+            .from('user_verification_documents')
+            .update({
+              verification_status: 'APPROVED',
+              verified_at: new Date().toISOString()
+            })
+            .eq('id', doc.id)
+        }
+      }
 
       // 4. If company information exists, create or update realtor company
       if (request.company_name && request.company_registration_number) {
