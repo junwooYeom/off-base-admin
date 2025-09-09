@@ -135,7 +135,7 @@ export default function CompanyVerificationPage() {
               business_registration_number: request.company_registration_number,
               phone_number: request.company_phone || '',
               address: request.company_address || '',
-              business_license_url: request.business_license_url,
+              business_license: request.business_license_url,
               verification_status: 'PENDING',
               created_at: request.created_at,
               updated_at: request.updated_at,
@@ -195,7 +195,7 @@ export default function CompanyVerificationPage() {
               company_name: company.company_name,
               phone_number: company.phone_number,
               address: company.address,
-              business_license_url: company.business_license_url,
+              business_license: company.business_license,
               verification_status: 'APPROVED',
               verified_at: new Date().toISOString(),
               is_verified: true,
@@ -221,8 +221,7 @@ export default function CompanyVerificationPage() {
               business_registration_number: company.business_registration_number,
               phone_number: company.phone_number,
               address: company.address,
-              business_license: company.business_registration_number,
-              business_license_url: company.business_license_url,
+              business_license: company.business_license,
               verification_status: 'APPROVED',
               verified_at: new Date().toISOString(),
               is_verified: true
@@ -284,10 +283,14 @@ export default function CompanyVerificationPage() {
             .eq('verification_status', 'PENDING')
         }
 
-        // Delete the role upgrade request after successful approval
+        // Update the role upgrade request status to approved
         await supabase
           .from('role_upgrade_requests')
-          .delete()
+          .update({
+            status: 'approved',
+            approved_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
           .eq('id', roleRequestId)
 
         alert('회사와 역할 변경이 성공적으로 승인되었습니다.')
@@ -342,10 +345,13 @@ export default function CompanyVerificationPage() {
           throw error
         }
         
-        // Delete the role upgrade request after rejection
+        // Update the role upgrade request status to rejected
         await supabase
           .from('role_upgrade_requests')
-          .delete()
+          .update({
+            status: 'rejected',
+            updated_at: new Date().toISOString()
+          })
           .eq('id', roleRequestId)
         
         alert('역할 변경 요청이 거절되었습니다.')
@@ -509,10 +515,10 @@ export default function CompanyVerificationPage() {
                           </div>
                         </div>
 
-                        {company.business_license_url && (
+                        {company.business_license && company.business_license.startsWith('https://') && (
                           <div className="pt-2">
                             <a
-                              href={company.business_license_url}
+                              href={company.business_license}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="inline-flex items-center space-x-1 text-blue-600 hover:text-blue-800"

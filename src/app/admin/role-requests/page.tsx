@@ -196,8 +196,7 @@ export default function RoleRequestsPage() {
               business_registration_number: request.company_registration_number,
               phone_number: request.company_phone || '',
               address: request.company_address,
-              business_license: request.company_registration_number,
-              business_license_url: request.business_license_url,
+              business_license: request.business_license_url || request.company_registration_number,
               verification_status: 'APPROVED',
               verified_at: new Date().toISOString(),
               is_verified: true
@@ -216,14 +215,18 @@ export default function RoleRequestsPage() {
           .eq('id', request.user_id)
       }
 
-      // Delete the role upgrade request after successful approval
-      const { error: deleteError } = await supabase
+      // Update the role upgrade request status to approved
+      const { error: updateError } = await supabase
         .from('role_upgrade_requests')
-        .delete()
+        .update({
+          status: 'approved',
+          approved_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
         .eq('id', request.id)
       
-      if (deleteError) {
-        console.warn('Failed to delete role upgrade request:', deleteError)
+      if (updateError) {
+        console.warn('Failed to update role upgrade request status:', updateError)
       }
 
       await loadRequests()
@@ -259,14 +262,17 @@ export default function RoleRequestsPage() {
 
       if (requestError) throw requestError
 
-      // Delete the role upgrade request after rejection
-      const { error: deleteError } = await supabase
+      // Update the role upgrade request status to rejected
+      const { error: updateError } = await supabase
         .from('role_upgrade_requests')
-        .delete()
+        .update({
+          status: 'rejected',
+          updated_at: new Date().toISOString()
+        })
         .eq('id', requestId)
       
-      if (deleteError) {
-        console.warn('Failed to delete role upgrade request:', deleteError)
+      if (updateError) {
+        console.warn('Failed to update role upgrade request status:', updateError)
       }
 
       setRejectionReasons(prev => ({ ...prev, [requestId]: '' }))
@@ -607,6 +613,55 @@ export default function RoleRequestsPage() {
                   )}
                 </div>
               </div>
+
+              {/* All Uploaded Documents Section */}
+              {request.documents && request.documents.length > 0 && (
+                <div className="px-6 py-4 border-b bg-blue-50">
+                  <h4 className="text-sm font-semibold text-gray-700 mb-3">
+                    업로드된 모든 서류 ({request.documents.length}개)
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {request.documents.map((docUrl, index) => {
+                      const isBusinessLicense = docUrl === request.business_license_url
+                      const isRealtorLicense = docUrl === request.realtor_license_url
+                      const isIdCard = !isBusinessLicense && !isRealtorLicense
+                      
+                      return (
+                        <div key={index} className="flex items-center justify-between p-3 bg-white rounded-lg border border-blue-200">
+                          <div className="flex items-center space-x-3">
+                            <FileText className={`h-5 w-5 ${
+                              isBusinessLicense ? 'text-green-600' :
+                              isRealtorLicense ? 'text-purple-600' :
+                              'text-blue-600'
+                            }`} />
+                            <div>
+                              <p className="text-sm font-medium text-gray-900">
+                                {isBusinessLicense ? '사업자 등록증' :
+                                 isRealtorLicense ? '공인중개사 자격증' :
+                                 `신분증 또는 기타 서류 ${index + 1}`}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {isBusinessLicense ? '사업자 서류' :
+                                 isRealtorLicense ? '자격증 서류' :
+                                 '신원 확인 서류'}
+                              </p>
+                            </div>
+                          </div>
+                          <a
+                            href={docUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center space-x-1 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
+                          >
+                            <Eye className="h-4 w-4" />
+                            <span>보기</span>
+                          </a>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Additional Documents Section */}
               {request.user?.user_verification_documents && request.user.user_verification_documents.length > 0 && (
