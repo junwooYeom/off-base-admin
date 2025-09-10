@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Building2, Calendar, CheckCircle, XCircle, FileText, User, UserPlus, AlertCircle } from 'lucide-react'
@@ -33,6 +34,7 @@ interface RealtorCompany {
 const ITEMS_PER_PAGE = 10
 
 export default function CompanyVerificationPage() {
+  const router = useRouter()
   const [companies, setCompanies] = useState<RealtorCompany[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('PENDING')
@@ -553,22 +555,30 @@ export default function CompanyVerificationPage() {
                         </div>
                       </div>
 
-                      {company.verification_status === 'PENDING' && (
-                        <div className="flex space-x-2 ml-4">
-                          <button
-                            onClick={() => handleApprove(company.id)}
-                            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
-                          >
-                            승인
-                          </button>
-                          <button
-                            onClick={() => openRejectModal(company.id)}
-                            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
-                          >
-                            거절
-                          </button>
-                        </div>
-                      )}
+                      <div className="flex space-x-2 ml-4">
+                        <button
+                          onClick={() => router.push(`/admin/companies/${company.id}/edit`)}
+                          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                        >
+                          편집
+                        </button>
+                        {company.verification_status === 'PENDING' && (
+                          <>
+                            <button
+                              onClick={() => handleApprove(company.id)}
+                              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                            >
+                              승인
+                            </button>
+                            <button
+                              onClick={() => openRejectModal(company.id)}
+                              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+                            >
+                              거절
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </CardContent>
                 </Card>

@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Upload, FileText, X, Loader2, CheckCircle, AlertCircle } from 'lucide-react'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { supabase } from '@/lib/supabase'
 
 type DocumentType = 'business_registration' | 'id_card' | 'realtor_license'
 
@@ -33,15 +33,88 @@ export default function UserDocumentUploader({
   const [documents, setDocuments] = useState(existingDocuments)
   const [uploading, setUploading] = useState(false)
   const [selectedType, setSelectedType] = useState<DocumentType>('id_card')
-  const supabase = createClientComponentClient()
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  
+  useEffect(() => {
+    // Check authentication status on component mount
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      console.log('[UserDocumentUploader] Session check:', {
+        hasSession: !!session,
+        userId: session?.user?.id,
+        email: session?.user?.email
+      })
+      
+      if (session?.user?.id) {
+        setCurrentUserId(session.user.id)
+        
+        // Check if user is admin
+        const { data: adminCheck } = await supabase
+          .from('users')
+          .select('user_type')
+          .eq('id', session.user.id)
+          .single()
+        
+        const userIsAdmin = adminCheck?.user_type === 'ADMIN'
+        setIsAdmin(userIsAdmin)
+        
+        console.log('[UserDocumentUploader] Auth state:', {
+          currentUserId: session.user.id,
+          userType: adminCheck?.user_type,
+          isAdmin: userIsAdmin,
+          uploadingForUserId: userId
+        })
+      }
+    }
+    
+    checkAuth()
+  }, [])
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (!file) return
+    if (!file) {
+      console.log('[UserDocumentUploader] No file selected')
+      return
+    }
+
+    console.log('[UserDocumentUploader] File upload started:', {
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      selectedType: selectedType,
+      uploadingForUserId: userId,
+      currentUserId: currentUserId,
+      isAdmin: isAdmin,
+      pathWillBe: `${userId}/documentation/${selectedType}`
+    })
+    
+    // For admin pages, we'll use the admin API regardless of auth status
+    // Check if we're in an admin page by checking the URL
+    const isAdminPage = window.location.pathname.startsWith('/admin/')
+    
+    if (!isAdminPage) {
+      // Only check authentication for non-admin pages
+      if (!currentUserId) {
+        console.error('[UserDocumentUploader] No authenticated user found!')
+        alert('인증 세션이 만료되었습니다. 페이지를 새로고침해주세요.')
+        return
+      }
+      
+      // Verify admin status if uploading for another user
+      if (userId !== currentUserId && !isAdmin) {
+        console.error('[UserDocumentUploader] Non-admin trying to upload for another user')
+        alert('다른 사용자의 문서를 업로드할 권한이 없습니다.')
+        return
+      }
+    } else {
+      console.log('[UserDocumentUploader] Admin page detected, will use admin API')
+    }
 
     // Check if document type already exists
     const existingDoc = documents.find(doc => doc.document_type === selectedType)
     if (existingDoc) {
+      console.log('[UserDocumentUploader] Existing document found:', existingDoc)
       if (!confirm(`이미 ${documentTypeLabels[selectedType]}이(가) 등록되어 있습니다. 교체하시겠습니까?`)) {
         return
       }
@@ -52,77 +125,195 @@ export default function UserDocumentUploader({
     // Validate file type
     const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg']
     if (!allowedTypes.includes(file.type)) {
+      console.log('[UserDocumentUploader] Invalid file type:', file.type)
       alert('PDF, JPG, PNG 파일만 업로드 가능합니다')
       return
     }
 
     // Validate file size (10MB)
     if (file.size > 10 * 1024 * 1024) {
+      console.log('[UserDocumentUploader] File too large:', file.size)
       alert('파일 크기는 10MB 이하여야 합니다')
       return
     }
 
     setUploading(true)
+    console.log('[UserDocumentUploader] Starting upload...')
 
     try {
-      const fileExt = file.name.split('.').pop()
-      const fileName = `users/${userId}/documentation/${selectedType}.${fileExt}`
-
-      // Delete old file if exists
-      try {
-        await supabase.storage
-          .from('users')
-          .remove([`users/${userId}/documentation/${selectedType}`])
-      } catch (e) {
-        // Ignore if file doesn't exist
-      }
-
-      // Upload to Supabase Storage
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('users')
-        .upload(fileName, file, { upsert: true })
-
-      if (uploadError) throw uploadError
-
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('users')
-        .getPublicUrl(fileName)
-
-      // Save to database
-      const { data: docData, error: dbError } = await supabase
-        .from('user_verification_documents')
-        .insert({
-          user_id: userId,
-          document_url: publicUrl,
-          document_type: selectedType === 'business_registration' ? 'BUSINESS_LICENSE' : 
-                        selectedType === 'id_card' ? 'ID_CARD' : 'OTHER',
-          document_name: file.name,
-          file_size: file.size,
-          verification_status: 'PENDING'
+      let publicUrl: string
+      let docData: any
+      
+      // Check if we should use admin API 
+      // Use admin API if:
+      // 1. We're on an admin page (regardless of auth)
+      // 2. No auth session exists
+      // 3. Uploading for a different user
+      const isAdminPageUpload = window.location.pathname.startsWith('/admin/')
+      const useAdminApi = isAdminPageUpload || !currentUserId || (currentUserId && userId !== currentUserId)
+      
+      if (useAdminApi) {
+        console.log('[UserDocumentUploader] Using admin API for upload', {
+          isAdminPageUpload,
+          currentUserId,
+          userId,
+          useAdminApi
         })
-        .select()
-        .single()
+        
+        // Use admin API route
+        const formData = new FormData()
+        formData.append('file', file)
+        formData.append('userId', userId)
+        formData.append('documentType', selectedType)
+        formData.append('bucket', 'role-upgrade-documents')
+        
+        console.log('[UserDocumentUploader] Calling admin API...')
+        const response = await fetch('/api/admin/upload/document', {
+          method: 'POST',
+          body: formData
+        })
+        
+        console.log('[UserDocumentUploader] Admin API response status:', response.status)
+        
+        if (!response.ok) {
+          let errorMessage = 'Upload failed'
+          try {
+            const error = await response.json()
+            console.error('[UserDocumentUploader] Admin API error response:', error)
+            errorMessage = error.error || errorMessage
+          } catch (e) {
+            console.error('[UserDocumentUploader] Failed to parse error response:', e)
+          }
+          throw new Error(errorMessage)
+        }
+        
+        const result = await response.json()
+        console.log('[UserDocumentUploader] Admin API response data:', result)
+        
+        publicUrl = result.data.publicUrl
+        docData = result.data.document
+        
+        console.log('[UserDocumentUploader] Admin API upload successful:', {
+          publicUrl,
+          docData
+        })
+      } else {
+        console.log('[UserDocumentUploader] Using regular upload (user uploading own document)')
+        
+        // Regular user upload - use Supabase client
+        const fileExt = file.name.split('.').pop()
+        const fileName = `${userId}/documentation/${selectedType}.${fileExt}`
+        
+        console.log('[UserDocumentUploader] Upload config:', {
+          bucket: 'role-upgrade-documents',
+          fileName: fileName,
+          fileExt: fileExt
+        })
 
-      if (dbError) throw dbError
+        // Delete old file if exists
+        try {
+          console.log('[UserDocumentUploader] Attempting to delete old file...')
+          const { error: removeError } = await supabase.storage
+            .from('role-upgrade-documents')
+            .remove([`${userId}/documentation/${selectedType}`])
+          if (removeError) {
+            console.log('[UserDocumentUploader] Delete old file error (non-fatal):', removeError)
+          }
+        } catch (e) {
+          console.log('[UserDocumentUploader] Delete old file exception (non-fatal):', e)
+        }
 
-      // Update realtor_license_url if it's a realtor license
-      if (selectedType === 'realtor_license') {
-        await supabase
-          .from('users')
-          .update({ realtor_license_url: publicUrl })
-          .eq('id', userId)
+        // Upload to Supabase Storage
+        console.log('[UserDocumentUploader] Uploading file to storage...')
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('role-upgrade-documents')
+          .upload(fileName, file, { upsert: true })
+
+        if (uploadError) {
+          console.log('[UserDocumentUploader] Upload error:', uploadError)
+          throw uploadError
+        }
+        
+        console.log('[UserDocumentUploader] Upload successful:', uploadData)
+        
+        // Get public URL
+        const { data: { publicUrl: url } } = supabase.storage
+          .from('role-upgrade-documents')
+          .getPublicUrl(fileName)
+        
+        publicUrl = url
+        
+        // Save to database for regular users
+        const dbDocumentType = selectedType === 'business_registration' ? 'BUSINESS_LICENSE' : 
+                               selectedType === 'id_card' ? 'ID_CARD' : 'OTHER'
+        
+        console.log('[UserDocumentUploader] Saving to database:', {
+          user_id: userId,
+          document_type: dbDocumentType,
+          document_name: file.name,
+          file_size: file.size
+        })
+        
+        const { data: doc, error: dbError } = await supabase
+          .from('user_verification_documents')
+          .insert({
+            user_id: userId,
+            document_url: publicUrl,
+            document_type: dbDocumentType,
+            document_name: file.name,
+            file_size: file.size,
+            verification_status: 'PENDING'
+          })
+          .select()
+          .single()
+
+        if (dbError) {
+          console.log('[UserDocumentUploader] Database error:', dbError)
+          throw dbError
+        }
+        
+        docData = doc
+        console.log('[UserDocumentUploader] Database save successful:', docData)
+
+        // Update user URLs based on document type
+        if (selectedType === 'realtor_license') {
+          console.log('[UserDocumentUploader] Updating realtor_license_url in users table')
+          const { error: updateError } = await supabase
+            .from('users')
+            .update({ realtor_license_url: publicUrl })
+            .eq('id', userId)
+          if (updateError) {
+            console.log('[UserDocumentUploader] Error updating realtor_license_url:', updateError)
+          }
+        } else if (selectedType === 'id_card') {
+          console.log('[UserDocumentUploader] Updating id_card_url in users table')
+          const { error: updateError } = await supabase
+            .from('users')
+            .update({ id_card_url: publicUrl })
+            .eq('id', userId)
+          if (updateError) {
+            console.log('[UserDocumentUploader] Error updating id_card_url:', updateError)
+          }
+        }
       }
 
-      setDocuments(prev => [...prev, docData])
+      // Add document to state (docData comes from either admin API or regular upload)
+      if (docData) {
+        setDocuments(prev => [...prev, docData])
+      }
       
       if (onUploadComplete) onUploadComplete()
       
       // Reset input
       e.target.value = ''
+      console.log('[UserDocumentUploader] Upload process completed successfully')
     } catch (error) {
-      console.error('Upload error:', error)
-      alert('문서 업로드 중 오류가 발생했습니다')
+      console.warn('[UserDocumentUploader] Upload error details:', {
+        error: error,
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      })
+      alert(`문서 업로드 중 오류가 발생했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`)
     } finally {
       setUploading(false)
     }
@@ -135,11 +326,11 @@ export default function UserDocumentUploader({
       // Extract document type from URL
       const urlParts = docUrl.split('/')
       const docType = urlParts[urlParts.length - 1].split('.')[0]
-      const filePath = `users/${userId}/documentation/${docType}`
+      const filePath = `${userId}/documentation/${docType}`
 
       // Delete from storage
       await supabase.storage
-        .from('users')
+        .from('role-upgrade-documents')
         .remove([filePath])
 
       // Delete from database
@@ -148,11 +339,16 @@ export default function UserDocumentUploader({
         .delete()
         .eq('id', docId)
 
-      // Clear realtor_license_url if it's a realtor license
+      // Clear user URLs based on document type
       if (docType === 'realtor_license') {
         await supabase
           .from('users')
           .update({ realtor_license_url: null })
+          .eq('id', userId)
+      } else if (docType === 'id_card') {
+        await supabase
+          .from('users')
+          .update({ id_card_url: null })
           .eq('id', userId)
       }
 
@@ -160,7 +356,7 @@ export default function UserDocumentUploader({
       
       if (onUploadComplete) onUploadComplete()
     } catch (error) {
-      console.error('Delete error:', error)
+      console.warn('Delete error:', error)
       alert('문서 삭제 중 오류가 발생했습니다')
     }
   }

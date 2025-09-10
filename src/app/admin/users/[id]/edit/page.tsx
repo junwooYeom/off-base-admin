@@ -34,9 +34,10 @@ async function getUser(id: string) {
 export default async function UserEditPage({ 
   params 
 }: { 
-  params: { id: string } 
+  params: Promise<{ id: string }>
 }) {
-  const user = await getUser(params.id)
+  const { id } = await params
+  const user = await getUser(id)
 
   if (!user) {
     return (
@@ -78,17 +79,6 @@ export default async function UserEditPage({
             </span>
           </div>
           <div>
-            <span className="text-gray-600">인증 상태:</span>
-            <span className={`ml-2 font-medium ${
-              user.verification_status === 'APPROVED' ? 'text-green-600' :
-              user.verification_status === 'REJECTED' ? 'text-red-600' :
-              'text-yellow-600'
-            }`}>
-              {user.verification_status === 'APPROVED' ? '승인됨' :
-               user.verification_status === 'REJECTED' ? '거절됨' : '대기중'}
-            </span>
-          </div>
-          <div>
             <span className="text-gray-600">전화번호:</span>
             <span className="ml-2 font-medium">{user.phone_number || '-'}</span>
           </div>
@@ -111,7 +101,7 @@ export default async function UserEditPage({
       <div className="bg-white shadow rounded-lg p-6">
         <h2 className="text-lg font-semibold mb-4">프로필 이미지</h2>
         <ProfileImageUploader
-          userId={params.id}
+          userId={id}
           currentImageUrl={user.profile_image_url}
         />
       </div>
@@ -121,7 +111,7 @@ export default async function UserEditPage({
         <div className="bg-white shadow rounded-lg p-6">
           <h2 className="text-lg font-semibold mb-4">인증 서류</h2>
           <UserDocumentUploader
-            userId={params.id}
+            userId={id}
             existingDocuments={user.documents}
           />
         </div>
