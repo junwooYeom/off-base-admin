@@ -66,16 +66,16 @@ export default function PropertiesTable({properties, onUpdate}: PropertiesTableP
 
     const handleReject = async (propertyId: string) => {
         console.log('거절 버튼 클릭됨 - propertyId:', propertyId)
-        
+
         if (!confirm('이 매물을 거절하시겠습니까?')) {
             return
         }
 
         setProcessingId(propertyId)
-        
+
         try {
             console.log('API 호출 시작...')
-            
+
             // API를 통해 거절 처리
             const response = await fetch(`/api/admin/properties/${propertyId}/approve`, {
                 method: 'DELETE',
@@ -95,7 +95,7 @@ export default function PropertiesTable({properties, onUpdate}: PropertiesTableP
             }
 
             alert(result.message || '매물이 거절되었습니다.')
-            
+
             // onUpdate 콜백이 있으면 호출, 없으면 페이지 새로고침
             if (onUpdate) {
                 await onUpdate()
@@ -105,6 +105,45 @@ export default function PropertiesTable({properties, onUpdate}: PropertiesTableP
         } catch (err) {
             console.error('거절 중 오류:', err)
             alert('거절 중 오류가 발생했습니다.')
+        } finally {
+            setProcessingId(null)
+        }
+    }
+
+    const handleDelete = async (propertyId: string) => {
+        console.log('삭제 버튼 클릭됨 - propertyId:', propertyId)
+
+        if (!confirm('이 매물을 완전히 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
+            return
+        }
+
+        setProcessingId(propertyId)
+
+        try {
+            // Delete the property directly from Supabase
+            const { error } = await supabase
+                .from('properties')
+                .delete()
+                .eq('id', propertyId)
+
+            if (error) {
+                console.error('삭제 오류:', error)
+                alert(`삭제 실패: ${error.message || '알 수 없는 오류'}`)
+                setProcessingId(null)
+                return
+            }
+
+            alert('매물이 성공적으로 삭제되었습니다.')
+
+            // onUpdate 콜백이 있으면 호출, 없으면 페이지 새로고침
+            if (onUpdate) {
+                await onUpdate()
+            } else {
+                window.location.reload()
+            }
+        } catch (err) {
+            console.error('삭제 중 오류:', err)
+            alert('삭제 중 오류가 발생했습니다.')
         } finally {
             setProcessingId(null)
         }
@@ -231,13 +270,20 @@ export default function PropertiesTable({properties, onUpdate}: PropertiesTableP
                                 )}
                                 {property.status === 'REJECTED' && (
                                     <button
-                                        className="text-green-600 hover:text-green-900 disabled:opacity-50"
+                                        className="text-green-600 hover:text-green-900 disabled:opacity-50 mr-2"
                                         onClick={() => handleApprove(property.id)}
                                         disabled={processingId !== null}
                                     >
                                         재승인
                                     </button>
                                 )}
+                                <button
+                                    className="text-red-600 hover:text-red-900 disabled:opacity-50"
+                                    onClick={() => handleDelete(property.id)}
+                                    disabled={processingId !== null}
+                                >
+                                    삭제
+                                </button>
                             </>
                         )}
                     </td>

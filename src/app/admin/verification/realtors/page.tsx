@@ -28,7 +28,8 @@ export default function RealtorVerificationPage() {
   const [showReasonInput, setShowReasonInput] = useState<{ [key: string]: boolean }>({})
   const [currentPage, setCurrentPage] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
-  
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
   const supabase = createClientComponentClient()
 
   useEffect(() => {
@@ -126,12 +127,12 @@ export default function RealtorVerificationPage() {
     }
 
     setProcessing(realtorId)
-    
+
     try {
       // Update user verification status
       const { error: userError } = await supabase
         .from('users')
-        .update({ 
+        .update({
           verification_status: 'REJECTED',
           updated_at: new Date().toISOString()
         })
@@ -153,7 +154,7 @@ export default function RealtorVerificationPage() {
 
       setRejectionReasons(prev => ({ ...prev, [realtorId]: '' }))
       setShowReasonInput(prev => ({ ...prev, [realtorId]: false }))
-      
+
       await loadRealtors()
       alert('공인중개사 거절이 완료되었습니다')
     } catch (error) {
@@ -161,6 +162,42 @@ export default function RealtorVerificationPage() {
       alert('거절 처리 중 오류가 발생했습니다')
     } finally {
       setProcessing(null)
+    }
+  }
+
+  const handleDeleteRealtor = async (realtorId: string) => {
+    if (!confirm('이 공인중개사 계정을 완전히 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
+      return
+    }
+
+    setDeletingId(realtorId)
+
+    try {
+      // Delete user verification documents first
+      const { error: docsError } = await supabase
+        .from('user_verification_documents')
+        .delete()
+        .eq('user_id', realtorId)
+
+      if (docsError) {
+        console.error('Documents deletion error:', docsError)
+      }
+
+      // Delete the user account
+      const { error: userError } = await supabase
+        .from('users')
+        .delete()
+        .eq('id', realtorId)
+
+      if (userError) throw userError
+
+      await loadRealtors()
+      alert('공인중개사 계정이 성공적으로 삭제되었습니다')
+    } catch (error) {
+      console.error('Deletion error:', error)
+      alert('삭제 처리 중 오류가 발생했습니다')
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -335,18 +372,18 @@ export default function RealtorVerificationPage() {
                       <>
                         <button
                           onClick={() => handleApproveRealtor(realtor.id)}
-                          disabled={processing === realtor.id}
+                          disabled={processing === realtor.id || deletingId === realtor.id}
                           className="flex items-center space-x-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
                         >
                           <CheckCircle className="h-4 w-4" />
                           <span>전체 승인</span>
                         </button>
                         <button
-                          onClick={() => setShowReasonInput(prev => ({ 
-                            ...prev, 
-                            [realtor.id]: !prev[realtor.id] 
+                          onClick={() => setShowReasonInput(prev => ({
+                            ...prev,
+                            [realtor.id]: !prev[realtor.id]
                           }))}
-                          disabled={processing === realtor.id}
+                          disabled={processing === realtor.id || deletingId === realtor.id}
                           className="flex items-center space-x-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
                         >
                           <XCircle className="h-4 w-4" />
@@ -354,6 +391,14 @@ export default function RealtorVerificationPage() {
                         </button>
                       </>
                     )}
+                    <button
+                      onClick={() => handleDeleteRealtor(realtor.id)}
+                      disabled={processing === realtor.id || deletingId === realtor.id}
+                      className="flex items-center space-x-1 px-3 py-2 bg-red-700 text-white rounded-lg hover:bg-red-800 disabled:opacity-50"
+                    >
+                      <XCircle className="h-4 w-4" />
+                      <span>삭제</span>
+                    </button>
                   </div>
                 </div>
 

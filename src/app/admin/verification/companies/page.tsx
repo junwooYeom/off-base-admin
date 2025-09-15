@@ -43,6 +43,7 @@ export default function CompanyVerificationPage() {
   const [actionCompanyId, setActionCompanyId] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   useEffect(() => {
     setCurrentPage(1)
@@ -392,6 +393,65 @@ export default function CompanyVerificationPage() {
     setShowReasonModal(true)
   }
 
+  const handleDeleteCompany = async (companyId: string) => {
+    if (!confirm('이 회사를 완전히 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
+      return
+    }
+
+    setDeletingId(companyId)
+
+    try {
+      // Check if this is from a role upgrade request
+      if (companyId.startsWith('role_request_')) {
+        const roleRequestId = companyId.replace('role_request_', '')
+
+        // Delete the role upgrade request
+        const { error } = await supabase
+          .from('role_upgrade_requests')
+          .delete()
+          .eq('id', roleRequestId)
+
+        if (error) {
+          console.error('Role request deletion error:', error)
+          alert(`삭제 실패: ${error.message}`)
+          throw error
+        }
+
+        alert('역할 변경 요청이 성공적으로 삭제되었습니다.')
+      } else {
+        // First, unlink all users from this company
+        const { error: unlinkError } = await supabase
+          .from('users')
+          .update({ realtor_company_id: null })
+          .eq('realtor_company_id', companyId)
+
+        if (unlinkError) {
+          console.error('Users unlink error:', unlinkError)
+        }
+
+        // Delete the company
+        const { error } = await supabase
+          .from('realtor_companies')
+          .delete()
+          .eq('id', companyId)
+
+        if (error) {
+          console.error('Company deletion error:', error)
+          alert(`삭제 실패: ${error.message}`)
+          throw error
+        }
+
+        alert('회사가 성공적으로 삭제되었습니다.')
+      }
+
+      await loadCompanies()
+    } catch (error) {
+      console.error('Error deleting company:', error)
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -558,7 +618,8 @@ export default function CompanyVerificationPage() {
                       <div className="flex space-x-2 ml-4">
                         <button
                           onClick={() => router.push(`/admin/companies/${company.id}/edit`)}
-                          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                          disabled={deletingId === company.id}
                         >
                           편집
                         </button>
@@ -566,18 +627,27 @@ export default function CompanyVerificationPage() {
                           <>
                             <button
                               onClick={() => handleApprove(company.id)}
-                              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
+                              disabled={deletingId === company.id}
                             >
                               승인
                             </button>
                             <button
                               onClick={() => openRejectModal(company.id)}
-                              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+                              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50"
+                              disabled={deletingId === company.id}
                             >
                               거절
                             </button>
                           </>
                         )}
+                        <button
+                          onClick={() => handleDeleteCompany(company.id)}
+                          className="px-4 py-2 bg-red-700 text-white rounded-md hover:bg-red-800 disabled:opacity-50"
+                          disabled={deletingId === company.id}
+                        >
+                          삭제
+                        </button>
                       </div>
                     </div>
                   </CardContent>
