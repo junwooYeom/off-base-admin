@@ -12,6 +12,7 @@ interface RoleUpgradeRequest {
   user_id: string
   target_role: string
   status: 'pending' | 'in_review' | 'approved' | 'rejected' | 'cancelled' | 'requires_update'
+  full_name?: string
   company_name?: string
   company_phone?: string
   company_address?: string
@@ -20,13 +21,14 @@ interface RoleUpgradeRequest {
   documents?: any
   business_license_url?: string
   realtor_license_url?: string
+  id_card_url?: string
   reviewed_by?: string
   rejection_reason?: string
   admin_notes?: string
   created_at: string
   updated_at: string
   approved_at?: string
-  
+
   // User details
   user: User & {
     user_verification_documents?: UserVerificationDocument[]
@@ -61,37 +63,22 @@ export default function RoleRequestsPage() {
   const loadRequests = async () => {
     setLoading(true)
     try {
-      const from = (currentPage - 1) * ITEMS_PER_PAGE
-      const to = from + ITEMS_PER_PAGE - 1
+      // Use API endpoint to bypass RLS
+      const response = await fetch(`/api/admin/role-requests?page=${currentPage}&filter=${filter}`)
 
-      let query = supabase
-        .from('role_upgrade_requests')
-        .select(`
-          *,
-          user:users!role_upgrade_requests_user_id_fkey (
-            *,
-            user_verification_documents (*)
-          )
-        `, { count: 'exact' })
-        .order('created_at', { ascending: false })
-        .range(from, to)
-
-      if (filter !== 'ALL') {
-        query = query.eq('status', filter)
+      if (!response.ok) {
+        throw new Error(`Failed to fetch: ${response.statusText}`)
       }
 
-      const { data, error, count } = await query
+      const result = await response.json()
 
-      if (error) {
-        console.error('Error loading role upgrade requests:', error)
-        setRequests([])
-        setTotalCount(0)
-      } else {
-        setRequests(data || [])
-        setTotalCount(count || 0)
-      }
+      console.log('Successfully loaded requests:', result.data)
+      setRequests(result.data || [])
+      setTotalCount(result.count || 0)
     } catch (error) {
       console.error('Error loading role upgrade requests:', error)
+      setRequests([])
+      setTotalCount(0)
     } finally {
       setLoading(false)
     }
@@ -122,6 +109,11 @@ export default function RoleRequestsPage() {
         user_type: 'REALTOR',
         verified_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
+      }
+
+      // Add full_name if provided in the request
+      if (request.full_name) {
+        userUpdateData.full_name = request.full_name
       }
 
       // Add realtor-specific fields if provided
@@ -422,7 +414,7 @@ export default function RoleRequestsPage() {
                     
                     <div className="flex-1">
                       <h3 className="text-lg font-semibold text-gray-900">
-                        {request.user?.full_name || '이름 미등록'}
+                        {request.full_name || request.user?.full_name || '이름 미등록'}
                       </h3>
                       
                       {/* Role Change Info */}
@@ -431,6 +423,13 @@ export default function RoleRequestsPage() {
                         <ArrowRight className="h-4 w-4 text-gray-400" />
                         {getRoleBadge(request.target_role)}
                       </div>
+
+                      {/* Show if name will be updated */}
+                      {request.full_name && request.full_name !== request.user?.full_name && (
+                        <div className="mt-2 text-sm text-blue-600">
+                          <span className="font-medium">이름 업데이트:</span> {request.user?.full_name || '(없음)'} → {request.full_name}
+                        </div>
+                      )}
                       
                       {/* Contact Information Grid */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3">
@@ -569,8 +568,28 @@ export default function RoleRequestsPage() {
 
               {/* License Documents Section */}
               <div className="px-6 py-4 border-b bg-green-50">
-                <h4 className="text-sm font-semibold text-gray-700 mb-3">제출된 자격증</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <h4 className="text-sm font-semibold text-gray-700 mb-3">제출된 서류</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {request.id_card_url && (
+                    <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-blue-200">
+                      <div className="flex items-center space-x-3">
+                        <CreditCard className="h-5 w-5 text-blue-600" />
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">신분증</p>
+                          <p className="text-xs text-gray-500">본인 확인 서류</p>
+                        </div>
+                      </div>
+                      <a
+                        href={request.id_card_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center space-x-1 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
+                      >
+                        <Eye className="h-4 w-4" />
+                        <span>보기</span>
+                      </a>
+                    </div>
+                  )}
                   {request.realtor_license_url && (
                     <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-green-200">
                       <div className="flex items-center space-x-3">
@@ -594,7 +613,7 @@ export default function RoleRequestsPage() {
                   {request.business_license_url && (
                     <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-green-200">
                       <div className="flex items-center space-x-3">
-                        <FileText className="h-5 w-5 text-green-600" />
+                        <Building className="h-5 w-5 text-purple-600" />
                         <div>
                           <p className="text-sm font-medium text-gray-900">사업자 등록증</p>
                           <p className="text-xs text-gray-500">번호: {request.company_registration_number || '미등록'}</p>
@@ -604,7 +623,7 @@ export default function RoleRequestsPage() {
                         href={request.business_license_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center space-x-1 px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700"
+                        className="flex items-center space-x-1 px-3 py-1.5 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700"
                       >
                         <Eye className="h-4 w-4" />
                         <span>보기</span>
@@ -624,26 +643,30 @@ export default function RoleRequestsPage() {
                     {request.documents.map((docUrl, index) => {
                       const isBusinessLicense = docUrl === request.business_license_url
                       const isRealtorLicense = docUrl === request.realtor_license_url
-                      const isIdCard = !isBusinessLicense && !isRealtorLicense
+                      const isIdCard = docUrl === request.id_card_url
+                      const isOther = !isBusinessLicense && !isRealtorLicense && !isIdCard
                       
                       return (
                         <div key={index} className="flex items-center justify-between p-3 bg-white rounded-lg border border-blue-200">
                           <div className="flex items-center space-x-3">
                             <FileText className={`h-5 w-5 ${
-                              isBusinessLicense ? 'text-green-600' :
-                              isRealtorLicense ? 'text-purple-600' :
-                              'text-blue-600'
+                              isBusinessLicense ? 'text-purple-600' :
+                              isRealtorLicense ? 'text-green-600' :
+                              isIdCard ? 'text-blue-600' :
+                              'text-gray-600'
                             }`} />
                             <div>
                               <p className="text-sm font-medium text-gray-900">
                                 {isBusinessLicense ? '사업자 등록증' :
                                  isRealtorLicense ? '공인중개사 자격증' :
-                                 `신분증 또는 기타 서류 ${index + 1}`}
+                                 isIdCard ? '신분증' :
+                                 `기타 서류 ${index + 1}`}
                               </p>
                               <p className="text-xs text-gray-500">
                                 {isBusinessLicense ? '사업자 서류' :
                                  isRealtorLicense ? '자격증 서류' :
-                                 '신원 확인 서류'}
+                                 isIdCard ? '본인 확인 서류' :
+                                 '추가 서류'}
                               </p>
                             </div>
                           </div>
