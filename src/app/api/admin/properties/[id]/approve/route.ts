@@ -16,7 +16,7 @@ const supabaseAdmin = createClient(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Admin 권한 확인
@@ -25,7 +25,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const propertyId = params.id
+    const { id: propertyId } = await params
 
     // Properties 테이블 업데이트
     const { data, error } = await supabaseAdmin
@@ -61,7 +61,7 @@ export async function POST(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Admin 권한 확인
@@ -70,7 +70,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const propertyId = params.id
+    const { id: propertyId } = await params
 
     // Properties 테이블 업데이트 (거절)
     const { data, error } = await supabaseAdmin

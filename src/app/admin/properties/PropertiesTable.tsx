@@ -2,7 +2,6 @@
 
 import {Property} from '@/types'
 import {toPropertyWithCompat} from '@/types/compatibility'
-import {supabase} from '@/lib/supabase'
 import {useRouter} from 'next/navigation'
 import {useState} from 'react'
 
@@ -120,20 +119,24 @@ export default function PropertiesTable({properties, onUpdate}: PropertiesTableP
         setProcessingId(propertyId)
 
         try {
-            // Delete the property directly from Supabase
-            const { error } = await supabase
-                .from('properties')
-                .delete()
-                .eq('id', propertyId)
+            // Use API endpoint to delete the property (bypasses RLS)
+            const response = await fetch(`/api/admin/properties/${propertyId}/delete`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
 
-            if (error) {
-                console.error('삭제 오류:', error)
-                alert(`삭제 실패: ${error.message || '알 수 없는 오류'}`)
+            const result = await response.json()
+
+            if (!response.ok) {
+                console.error('삭제 오류:', result.error)
+                alert(`삭제 실패: ${result.error || '알 수 없는 오류'}`)
                 setProcessingId(null)
                 return
             }
 
-            alert('매물이 성공적으로 삭제되었습니다.')
+            alert(result.message || '매물이 성공적으로 삭제되었습니다.')
 
             // onUpdate 콜백이 있으면 호출, 없으면 페이지 새로고침
             if (onUpdate) {
