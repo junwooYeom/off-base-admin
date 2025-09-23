@@ -203,59 +203,6 @@ export type Database = {
           },
         ]
       }
-      property_documents: {
-        Row: {
-          created_at: string | null
-          document_name: string | null
-          document_type: Database["public"]["Enums"]["document_type"]
-          document_url: string
-          file_size: number | null
-          id: string
-          property_id: string
-          rejection_reason: string | null
-          verification_status:
-            | Database["public"]["Enums"]["verification_status"]
-            | null
-          verified_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          document_name?: string | null
-          document_type: Database["public"]["Enums"]["document_type"]
-          document_url: string
-          file_size?: number | null
-          id?: string
-          property_id: string
-          rejection_reason?: string | null
-          verification_status?:
-            | Database["public"]["Enums"]["verification_status"]
-            | null
-          verified_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          document_name?: string | null
-          document_type?: Database["public"]["Enums"]["document_type"]
-          document_url?: string
-          file_size?: number | null
-          id?: string
-          property_id?: string
-          rejection_reason?: string | null
-          verification_status?:
-            | Database["public"]["Enums"]["verification_status"]
-            | null
-          verified_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "property_documents_property_id_fkey"
-            columns: ["property_id"]
-            isOneToOne: false
-            referencedRelation: "properties"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       property_media: {
         Row: {
           alt_text: string | null
@@ -422,59 +369,6 @@ export type Database = {
           },
           {
             foreignKeyName: "user_favorites_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      user_verification_documents: {
-        Row: {
-          created_at: string | null
-          document_name: string | null
-          document_type: Database["public"]["Enums"]["document_type"]
-          document_url: string
-          file_size: number | null
-          id: string
-          rejection_reason: string | null
-          user_id: string
-          verification_status:
-            | Database["public"]["Enums"]["verification_status"]
-            | null
-          verified_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          document_name?: string | null
-          document_type: Database["public"]["Enums"]["document_type"]
-          document_url: string
-          file_size?: number | null
-          id?: string
-          rejection_reason?: string | null
-          user_id: string
-          verification_status?:
-            | Database["public"]["Enums"]["verification_status"]
-            | null
-          verified_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          document_name?: string | null
-          document_type?: Database["public"]["Enums"]["document_type"]
-          document_url?: string
-          file_size?: number | null
-          id?: string
-          rejection_reason?: string | null
-          user_id?: string
-          verification_status?:
-            | Database["public"]["Enums"]["verification_status"]
-            | null
-          verified_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "user_verification_documents_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
@@ -688,12 +582,6 @@ export type Database = {
         | "SOUTHWEST"
         | "NORTHEAST"
         | "NORTHWEST"
-      document_type:
-        | "PROPERTY_OWNERSHIP"
-        | "BUSINESS_LICENSE"
-        | "ID_CARD"
-        | "CONTRACT"
-        | "OTHER"
       media_type: "IMAGE" | "VIDEO"
       property_type: "APARTMENT" | "OFFICETEL" | "VILLA" | "HOUSE" | "STUDIO"
       region_type: "HUMPREYS" | "OSAN"

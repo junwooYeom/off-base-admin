@@ -234,12 +234,6 @@ export default function PropertiesTable({properties, onUpdate}: PropertiesTableP
                         >
                             이미지
                         </button>
-                        <button
-                            className="text-yellow-600 hover:text-yellow-900 mr-2"
-                            onClick={() => router.push(`/admin/properties/${property.id}/documents`)}
-                        >
-                            문서
-                        </button>
                         {processingId === property.id ? (
                             <span className="text-gray-400">처리 중...</span>
                         ) : (

@@ -44,21 +44,10 @@ async function getPropertyMedia(propertyId: string) {
   return data || []
 }
 
-async function getPropertyDocuments(propertyId: string) {
-  const { data, error } = await supabase
-    .from('property_documents')
-    .select('*')
-    .eq('property_id', propertyId)
-    .order('created_at', { ascending: false })
-
-  if (error) throw error
-  return data || []
-}
 
 export default async function PropertyDetailPage({ params }: { params: { id: string } }) {
   const property = await getProperty(params.id)
   const media = await getPropertyMedia(params.id)
-  const documents = await getPropertyDocuments(params.id)
 
   if (!property) {
     return (
@@ -107,12 +96,6 @@ export default async function PropertyDetailPage({ params }: { params: { id: str
             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
           >
             이미지 관리
-          </Link>
-          <Link
-            href={`/admin/properties/${params.id}/documents`}
-            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
-          >
-            문서 관리
           </Link>
         </div>
       </div>
@@ -384,44 +367,6 @@ export default async function PropertyDetailPage({ params }: { params: { id: str
         </Card>
       )}
 
-      {/* Documents */}
-      {documents.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>문서 ({documents.length})</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {documents.map((doc) => (
-                <div key={doc.id} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div>
-                    <p className="font-medium">{doc.document_name || doc.document_type}</p>
-                    <p className="text-sm text-gray-500">
-                      {new Date(doc.created_at).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                    doc.verification_status === 'APPROVED' 
-                      ? 'bg-green-100 text-green-800'
-                      : doc.verification_status === 'REJECTED'
-                      ? 'bg-red-100 text-red-800'
-                      : 'bg-yellow-100 text-yellow-800'
-                  }`}>
-                    {doc.verification_status === 'APPROVED' ? '승인됨' :
-                     doc.verification_status === 'REJECTED' ? '거절됨' : '대기중'}
-                  </span>
-                </div>
-              ))}
-            </div>
-            <Link
-              href={`/admin/properties/${params.id}/documents`}
-              className="mt-4 inline-block text-indigo-600 hover:text-indigo-500"
-            >
-              문서 관리 →
-            </Link>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Additional Info */}
       <Card>

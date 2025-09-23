@@ -8,31 +8,25 @@ export type { Database, Tables, TablesInsert, TablesUpdate, Enums }
 export type User = Tables<'users'>
 export type Property = Tables<'properties'>
 export type PropertyMedia = Tables<'property_media'>
-export type PropertyDocument = Tables<'property_documents'>
 export type PropertyReport = Tables<'property_reports'>
 export type RealtorCompany = Tables<'realtor_companies'>
 export type UserFavorite = Tables<'user_favorites'>
-export type UserVerificationDocument = Tables<'user_verification_documents'>
 
 // Insert type aliases
 export type UserInsert = TablesInsert<'users'>
 export type PropertyInsert = TablesInsert<'properties'>
 export type PropertyMediaInsert = TablesInsert<'property_media'>
-export type PropertyDocumentInsert = TablesInsert<'property_documents'>
 export type PropertyReportInsert = TablesInsert<'property_reports'>
 export type RealtorCompanyInsert = TablesInsert<'realtor_companies'>
 export type UserFavoriteInsert = TablesInsert<'user_favorites'>
-export type UserVerificationDocumentInsert = TablesInsert<'user_verification_documents'>
 
 // Update type aliases
 export type UserUpdate = TablesUpdate<'users'>
 export type PropertyUpdate = TablesUpdate<'properties'>
 export type PropertyMediaUpdate = TablesUpdate<'property_media'>
-export type PropertyDocumentUpdate = TablesUpdate<'property_documents'>
 export type PropertyReportUpdate = TablesUpdate<'property_reports'>
 export type RealtorCompanyUpdate = TablesUpdate<'realtor_companies'>
 export type UserFavoriteUpdate = TablesUpdate<'user_favorites'>
-export type UserVerificationDocumentUpdate = TablesUpdate<'user_verification_documents'>
 
 // Enum type aliases
 export type UserType = Enums<'user_type'>
@@ -41,7 +35,6 @@ export type TransactionType = Enums<'transaction_type'>
 export type RegionType = Enums<'region_type'>
 export type DirectionType = Enums<'direction_type'>
 export type MediaType = Enums<'media_type'>
-export type DocumentType = Enums<'document_type'>
 export type VerificationStatus = Enums<'verification_status'>
 export type ReportReason = Enums<'report_reason'>
 

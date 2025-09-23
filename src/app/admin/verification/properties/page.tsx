@@ -2,14 +2,13 @@
 
 import { useState, useEffect } from 'react'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
-import { Property, PropertyDocument, PropertyMedia } from '@/types/supabase'
+import { Property, PropertyMedia } from '@/types/supabase'
 import { CheckCircle, XCircle, FileText, Home, Clock, AlertCircle, Image as ImageIcon, MapPin } from 'lucide-react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import Pagination from '@/components/Pagination'
 
 interface PropertyWithDetails extends Property {
-  property_documents: PropertyDocument[]
   property_media: PropertyMedia[]
   owner: {
     id: string
@@ -55,7 +54,6 @@ export default function PropertyVerificationPage() {
         .from('properties')
         .select(`
           *,
-          property_documents (*),
           property_media (*),
           owner:owner_id (
             id,
@@ -102,18 +100,6 @@ export default function PropertyVerificationPage() {
 
       if (propError) throw propError
 
-      // Approve all pending documents
-      const { error: docsError } = await supabase
-        .from('property_documents')
-        .update({
-          verification_status: 'APPROVED',
-          verified_at: new Date().toISOString()
-        })
-        .eq('property_id', propertyId)
-        .eq('verification_status', 'PENDING')
-
-      if (docsError) throw docsError
-
       await loadProperties()
       alert('매물 승인이 완료되었습니다')
     } catch (error) {
@@ -145,18 +131,6 @@ export default function PropertyVerificationPage() {
 
       if (propError) throw propError
 
-      // Reject all documents with reason
-      const { error: docsError } = await supabase
-        .from('property_documents')
-        .update({
-          verification_status: 'REJECTED',
-          rejection_reason: reason,
-          verified_at: new Date().toISOString()
-        })
-        .eq('property_id', propertyId)
-
-      if (docsError) throw docsError
-
       setRejectionReasons(prev => ({ ...prev, [propertyId]: '' }))
       setShowReasonInput(prev => ({ ...prev, [propertyId]: false }))
       
@@ -167,17 +141,6 @@ export default function PropertyVerificationPage() {
       alert('거절 처리 중 오류가 발생했습니다')
     } finally {
       setProcessing(null)
-    }
-  }
-
-  const getDocumentTypeLabel = (type: string) => {
-    switch (type) {
-      case 'PROPERTY_OWNERSHIP': return '소유권 증명서'
-      case 'BUSINESS_LICENSE': return '사업자 등록증'
-      case 'ID_CARD': return '신분증'
-      case 'CONTRACT': return '계약서'
-      case 'OTHER': return '기타'
-      default: return type
     }
   }
 
@@ -430,79 +393,6 @@ export default function PropertyVerificationPage() {
                       +{property.property_media.length - 6}개 더보기
                     </p>
                   )}
-                </div>
-
-                {/* Documents Section */}
-                <div className="p-6">
-                  <h4 className="text-sm font-semibold text-gray-700 mb-3">
-                    제출 서류 ({property.property_documents.length}개)
-                  </h4>
-                  
-                  {property.property_documents.length === 0 ? (
-                    <p className="text-sm text-gray-500">제출된 서류가 없습니다</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {property.property_documents.map((doc) => (
-                        <div key={doc.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                          <div className="flex items-center space-x-2">
-                            <FileText className="h-4 w-4 text-gray-400" />
-                            <div>
-                              <p className="text-sm font-medium text-gray-900">
-                                {getDocumentTypeLabel(doc.document_type)}
-                              </p>
-                              <p className="text-xs text-gray-500">
-                                {doc.document_name || '문서'}
-                              </p>
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-center space-x-2">
-                            {doc.verification_status === 'APPROVED' ? (
-                              <CheckCircle className="h-4 w-4 text-green-600" />
-                            ) : doc.verification_status === 'REJECTED' ? (
-                              <XCircle className="h-4 w-4 text-red-600" />
-                            ) : (
-                              <Clock className="h-4 w-4 text-yellow-600" />
-                            )}
-                            
-                            <a
-                              href={doc.document_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-blue-600 hover:text-blue-800 text-xs"
-                            >
-                              보기
-                            </a>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Required Documents Checklist */}
-                  <div className="mt-3 p-2 bg-blue-50 rounded">
-                    <h5 className="text-xs font-semibold text-blue-900 mb-1">필수 서류</h5>
-                    <div className="space-y-0.5">
-                      {['PROPERTY_OWNERSHIP', 'ID_CARD'].map((docType) => {
-                        const hasDoc = property.property_documents.some(
-                          d => d.document_type === docType
-                        )
-                        
-                        return (
-                          <div key={docType} className="flex items-center space-x-1 text-xs">
-                            {hasDoc ? (
-                              <CheckCircle className="h-3 w-3 text-green-600" />
-                            ) : (
-                              <XCircle className="h-3 w-3 text-gray-400" />
-                            )}
-                            <span className={hasDoc ? 'text-gray-700' : 'text-gray-400'}>
-                              {getDocumentTypeLabel(docType)}
-                            </span>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
                 </div>
               </div>
 
