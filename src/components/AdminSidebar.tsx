@@ -18,6 +18,8 @@ import {
   Building,
   ClipboardList,
   UserCog,
+  ShoppingBag,
+  Car,
 } from 'lucide-react'
 
 type NavItem = {
@@ -71,11 +73,32 @@ const navigation: NavItem[] = [
       { name: '사용자 연결', href: '/admin/housecare/users' },
     ],
   },
+  {
+    name: '마켓플레이스',
+    icon: <ShoppingBag className="w-5 h-5" />,
+    children: [
+      { name: '대시보드', href: '/admin/marketplace' },
+      { name: '아이템 관리', href: '/admin/marketplace/items' },
+      { name: '사용자 관리', href: '/admin/marketplace/users' },
+      { name: '신고/분쟁', href: '/admin/marketplace/reports' },
+      { name: '카테고리', href: '/admin/marketplace/categories' },
+    ],
+  },
+  {
+    name: '중고차',
+    icon: <Car className="w-5 h-5" />,
+    children: [
+      { name: '대시보드', href: '/admin/used-cars' },
+      { name: '차량 관리', href: '/admin/used-cars/cars' },
+      { name: '차량 요청', href: '/admin/used-cars/requests' },
+      { name: '문의 관리', href: '/admin/used-cars/inquiries' },
+    ],
+  },
 ]
 
 export default function AdminSidebar() {
   const pathname = usePathname()
-  const [openMenus, setOpenMenus] = useState<string[]>(['사용자', '매물', '인증/승인', '하우스케어'])
+  const [openMenus, setOpenMenus] = useState<string[]>(['사용자', '매물', '인증/승인', '하우스케어', '마켓플레이스', '중고차'])
 
   const toggleMenu = (name: string) => {
     setOpenMenus((prev) =>
