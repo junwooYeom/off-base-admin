@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, Suspense } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
@@ -77,7 +77,7 @@ const CONDITION_OPTIONS = [
   { value: 'poor', label: '나쁨' },
 ]
 
-export default function MarketplaceItemsPage() {
+function MarketplaceItemsContent() {
   const searchParams = useSearchParams()
   const [items, setItems] = useState<MarketplaceItem[]>([])
   const [currentPage, setCurrentPage] = useState(1)
@@ -615,5 +615,13 @@ export default function MarketplaceItemsPage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function MarketplaceItemsPage() {
+  return (
+    <Suspense fallback={<div className="bg-white shadow rounded-lg p-6"><div className="text-center">로딩 중...</div></div>}>
+      <MarketplaceItemsContent />
+    </Suspense>
   )
 }

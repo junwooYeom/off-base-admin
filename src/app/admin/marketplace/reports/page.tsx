@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, Suspense } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
@@ -46,7 +46,7 @@ const REPORT_REASON_OPTIONS = [
   { value: 'other', label: '기타' },
 ]
 
-export default function MarketplaceReportsPage() {
+function MarketplaceReportsContent() {
   const searchParams = useSearchParams()
   const [reports, setReports] = useState<Report[]>([])
   const [currentPage, setCurrentPage] = useState(1)
@@ -418,5 +418,13 @@ export default function MarketplaceReportsPage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function MarketplaceReportsPage() {
+  return (
+    <Suspense fallback={<div className="bg-white shadow rounded-lg p-6"><div className="text-center">로딩 중...</div></div>}>
+      <MarketplaceReportsContent />
+    </Suspense>
   )
 }

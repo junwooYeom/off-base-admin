@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, Suspense } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
@@ -29,7 +29,7 @@ interface Inquiry {
   car: { id: string; title: string } | { id: string; title: string }[] | null
 }
 
-export default function InquiriesPage() {
+function InquiriesContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [inquiries, setInquiries] = useState<Inquiry[]>([])
@@ -340,5 +340,13 @@ export default function InquiriesPage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function InquiriesPage() {
+  return (
+    <Suspense fallback={<div className="bg-white shadow rounded-lg p-6"><div className="text-center">로딩 중...</div></div>}>
+      <InquiriesContent />
+    </Suspense>
   )
 }

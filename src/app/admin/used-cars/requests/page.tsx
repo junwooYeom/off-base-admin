@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, Suspense } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
@@ -35,7 +35,7 @@ interface CarRequest {
   created_at: string
 }
 
-export default function CarRequestsPage() {
+function CarRequestsContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [requests, setRequests] = useState<CarRequest[]>([])
@@ -330,5 +330,13 @@ export default function CarRequestsPage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function CarRequestsPage() {
+  return (
+    <Suspense fallback={<div className="bg-white shadow rounded-lg p-6"><div className="text-center">로딩 중...</div></div>}>
+      <CarRequestsContent />
+    </Suspense>
   )
 }

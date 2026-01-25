@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
@@ -75,7 +75,7 @@ interface CarMake {
   name_ko: string | null
 }
 
-export default function CarDetailPage() {
+function CarDetailContent() {
   const params = useParams()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -869,5 +869,13 @@ export default function CarDetailPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function CarDetailPage() {
+  return (
+    <Suspense fallback={<div className="bg-white shadow rounded-lg p-6"><div className="text-center">로딩 중...</div></div>}>
+      <CarDetailContent />
+    </Suspense>
   )
 }
