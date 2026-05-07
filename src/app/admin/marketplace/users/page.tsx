@@ -29,7 +29,7 @@ interface MarketplaceUser {
   can_sell: boolean
   can_buy: boolean
   created_at: string
-  user: { id: string; name: string; email: string; phone: string } | null
+  user: { id: string; full_name: string | null; email: string; phone_number: string | null } | { id: string; full_name: string | null; email: string; phone_number: string | null }[] | null
 }
 
 const ITEMS_PER_PAGE = 20
@@ -64,7 +64,7 @@ export default function MarketplaceUsersPage() {
         .from('marketplace_user_profiles')
         .select(`
           *,
-          user:users(id, name, email, phone)
+          user:users(id, full_name, email, phone_number)
         `, { count: 'exact' })
 
       // Apply filters
@@ -87,10 +87,14 @@ export default function MarketplaceUsersPage() {
       let filteredData = data as MarketplaceUser[]
       if (searchQuery) {
         const searchLower = searchQuery.toLowerCase()
-        filteredData = filteredData.filter((profile) =>
-          profile.user?.name?.toLowerCase().includes(searchLower) ||
-          profile.user?.email?.toLowerCase().includes(searchLower)
-        )
+        filteredData = filteredData.filter((profile) => {
+          const u = Array.isArray(profile.user) ? profile.user[0] : profile.user
+          if (!u) return false
+          return (
+            u.full_name?.toLowerCase().includes(searchLower) ||
+            u.email?.toLowerCase().includes(searchLower)
+          )
+        })
       }
 
       setUsers(filteredData)
@@ -295,7 +299,9 @@ export default function MarketplaceUsersPage() {
                 </td>
               </tr>
             ) : (
-              users.map((profile) => (
+              users.map((profile) => {
+                const u = Array.isArray(profile.user) ? profile.user[0] : profile.user
+                return (
                 <tr key={profile.user_id} className="hover:bg-gray-50">
                   <td className="px-4 py-3">
                     <div className="flex items-center">
@@ -304,9 +310,9 @@ export default function MarketplaceUsersPage() {
                           href={`/admin/marketplace/users/${profile.user_id}`}
                           className="font-medium text-gray-900 hover:text-blue-600"
                         >
-                          {profile.user?.name || 'Unknown'}
+                          {u?.full_name || 'Unknown'}
                         </Link>
-                        <p className="text-sm text-gray-500">{profile.user?.email}</p>
+                        <p className="text-sm text-gray-500">{u?.email}</p>
                       </div>
                       {profile.is_verified_seller && (
                         <CheckCircle className="w-4 h-4 text-green-500 ml-2" />
@@ -438,7 +444,8 @@ export default function MarketplaceUsersPage() {
                     )}
                   </td>
                 </tr>
-              ))
+                )
+              })
             )}
           </tbody>
         </table>
